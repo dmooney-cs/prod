@@ -1,6 +1,6 @@
 
 # Data-Collection-and-Validation-Tool.ps1
-# ConnectSecure - System Collection and Validation Launcher
+# ConnectSecure - System Collection and Validation Launcher (Full with wildcard + safe exit)
 
 Write-Host "`n======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
 
@@ -23,6 +23,56 @@ function Show-MainMenu {
     Write-Host ""
 }
 
+function Run-ApplicationValidation {
+    Write-Host "`n--- Application Validation ---" -ForegroundColor Cyan
+    Write-Host "1. Scan all installed applications"
+    Write-Host "2. Scan using a wildcard search term"
+    Write-Host "3. Back to Validation Menu"
+    $appChoice = Read-Host "Select an option"
+    switch ($appChoice) {
+        "1" {
+            Write-Host "`n[Simulated] Scanning all applications..." -ForegroundColor Green
+        }
+        "2" {
+            $term = Read-Host "Enter keyword or wildcard to search for (e.g. *Office*)"
+            Write-Host "`n[Simulated] Searching for: $term" -ForegroundColor Green
+        }
+        "3" { return }
+        default { Write-Host "Invalid option. Returning." -ForegroundColor Red }
+    }
+    Pause
+}
+
+function Run-DriverValidation {
+    Write-Host "`n--- Driver Validation ---" -ForegroundColor Cyan
+    Write-Host "1. Scan all installed drivers"
+    Write-Host "2. Scan using a wildcard search term"
+    Write-Host "3. Back to Validation Menu"
+    $drvChoice = Read-Host "Select an option"
+    switch ($drvChoice) {
+        "1" {
+            Write-Host "`n[Simulated] Scanning all drivers..." -ForegroundColor Green
+        }
+        "2" {
+            $term = Read-Host "Enter keyword or wildcard to search for (e.g. *NVIDIA*)"
+            Write-Host "`n[Simulated] Searching for: $term" -ForegroundColor Green
+        }
+        "3" { return }
+        default { Write-Host "Invalid option. Returning." -ForegroundColor Red }
+    }
+    Pause
+}
+
+function Run-NetworkValidation {
+    Write-Host "`n[Simulated] Running Network Validation..." -ForegroundColor Green
+    Pause
+}
+
+function Run-WindowsUpdateValidation {
+    Write-Host "`n[Simulated] Running Windows Update Validation..." -ForegroundColor Green
+    Pause
+}
+
 function Run-ValidationScripts {
     do {
         Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
@@ -35,32 +85,32 @@ function Run-ValidationScripts {
         $valChoice = Read-Host "Select an option"
 
         switch ($valChoice) {
-            "1" { Write-Host "`n[Placeholder] Application Validation running..." -ForegroundColor Green }
-            "2" { Write-Host "`n[Placeholder] Driver Validation running..." -ForegroundColor Green }
-            "3" { Write-Host "`n[Placeholder] Network Validation running..." -ForegroundColor Green }
-            "4" { Write-Host "`n[Placeholder] Windows Update Validation running..." -ForegroundColor Green }
+            "1" { Run-ApplicationValidation }
+            "2" { Run-DriverValidation }
+            "3" { Run-NetworkValidation }
+            "4" { Run-WindowsUpdateValidation }
             "5" { return }
             default { Write-Host "Invalid choice. Try again." -ForegroundColor Red }
         }
 
-        Write-Host "`nPress Enter to return to Validation Menu..."
-        [void][System.Console]::ReadLine()
-        Clear-Host
     } while ($true)
 }
 
 function Run-AgentMaintenance {
     Write-Host "`n[Simulated] Agent Maintenance Module Loaded..." -ForegroundColor Cyan
+    Pause
 }
 
 function Run-ProbeTroubleshooting {
     Write-Host "`n[Simulated] Probe Troubleshooting Module Loaded..." -ForegroundColor Cyan
+    Pause
 }
 
 function Run-ZipAndEmail {
     Write-Host "`n[Simulated] Zipping Export Folder..." -ForegroundColor Cyan
     Start-Sleep -Milliseconds 500
     Write-Host "[Simulated] Launching default email client..." -ForegroundColor Cyan
+    Pause
 }
 
 function Purge-ScriptData {
@@ -81,8 +131,8 @@ function Purge-ScriptData {
     } else {
         Write-Host "No temp folder found at $tempPath." -ForegroundColor Yellow
     }
-    Write-Host "`nPress any key to exit..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    Write-Host "`nPress Enter to exit..."
+    Read-Host | Out-Null
     exit
 }
 
@@ -108,7 +158,7 @@ function Start-Tool {
         Run-SelectedOption -choice $choice
         if ($choice -ne "Q") {
             Write-Host "`nPress Enter to return to menu..."
-            [void][System.Console]::ReadLine()
+            Read-Host | Out-Null
         }
         Clear-Host
     } while ($choice.ToUpper() -ne "Q")
