@@ -23,10 +23,17 @@ function Show-MainMenu {
     Write-Host ""
 }
 
-# Additional functions omitted for brevity in this block...
-# You should paste your full script content here if restoring manually.
-
-Write-Host "`n[Placeholder script body truncated for safety]"
+function Run-SelectedOption {
+    param($choice)
+    switch ($choice.ToUpper()) {
+        "1" { Run-ValidationScripts }
+        "2" { Write-Host "`n[Simulated] Agent Maintenance..." -ForegroundColor Cyan; Pause }
+        "3" { Write-Host "`n[Simulated] Probe Troubleshooting..." -ForegroundColor Cyan; Pause }
+        "4" { Write-Host "`n[Simulated] Zipping results and launching email..." -ForegroundColor Cyan; Pause }
+        "Q" { Purge-ScriptData }
+        default { Write-Host "`nInvalid option. Please select again." -ForegroundColor Red }
+    }
+}
 
 function Start-Tool {
     do {
@@ -39,6 +46,51 @@ function Start-Tool {
         }
         Clear-Host
     } while ($choice.ToUpper() -ne "Q")
+}
+
+function Run-ValidationScripts {
+    do {
+        Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
+        Write-Host "1. Application Validation"
+        Write-Host "2. Driver Validation"
+        Write-Host "3. Network Validation"
+        Write-Host "4. Windows Update Validation"
+        Write-Host "5. Back to Main Menu"
+        Write-Host "----------------------------------"
+        $valChoice = Read-Host "Select an option"
+
+        switch ($valChoice) {
+            "1" { Run-ApplicationValidation }
+            "2" { Run-DriverValidation }
+            "3" { Write-Host "`n[Simulated] Network Validation running..." -ForegroundColor Green; Pause }
+            "4" { Write-Host "`n[Simulated] Windows Update Validation running..." -ForegroundColor Green; Pause }
+            "5" { return }
+            default { Write-Host "Invalid choice. Try again." -ForegroundColor Red }
+        }
+    } while ($true)
+}
+
+function Purge-ScriptData {
+    $tempPath = "C:\Script-Temp"
+    if (Test-Path $tempPath) {
+        $files = Get-ChildItem -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
+        $count = 0
+        foreach ($item in $files) {
+            try {
+                Remove-Item -Path $item.FullName -Force -Recurse -ErrorAction Stop
+                Write-Host "Deleted: $($item.FullName)" -ForegroundColor DarkGray
+                $count++
+            } catch {
+                Write-Host "Failed to delete: $($item.FullName)" -ForegroundColor Red
+            }
+        }
+        Write-Host "`nTotal items deleted: $count" -ForegroundColor Cyan
+    } else {
+        Write-Host "No temp folder found at $tempPath." -ForegroundColor Yellow
+    }
+    Write-Host "`nPress Enter to exit..."
+    Read-Host | Out-Null
+    exit
 }
 
 Start-Tool
