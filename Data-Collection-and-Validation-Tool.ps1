@@ -218,6 +218,81 @@ function Run-DriverValidation {
     Read-Host -Prompt "Press Enter to exit"
 }
 
+function Run-DriverValidation {
+    do {
+        Write-Host "`n--- Driver Validation ---" -ForegroundColor Cyan
+        Write-Host "1. Show All Drivers"
+        Write-Host "2. Back to Validation Menu"
+        $choice = Read-Host "Select an option"
+
+        switch ($choice) {
+            "1" { Show-AllDrivers }
+            "2" { return }
+            default { Write-Host "Invalid option. Try again." -ForegroundColor Red }
+        }
+    } while ($true)
+}
+
+function Show-AllDrivers {
+    $exportFolder = "C:\Script-Export"
+    if (-not (Test-Path $exportFolder)) {
+        New-Item -Path $exportFolder -ItemType Directory | Out-Null
+    }
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $hostname = $env:COMPUTERNAME
+    $outputPath = "$exportFolder\Installed_Drivers_${hostname}_$timestamp.csv"
+
+    $drivers = Get-WmiObject Win32_PnPSignedDriver | Sort-Object DeviceName
+
+    $driverInfo = $drivers | Select-Object `
+        DeviceName,
+        DeviceID,
+        DriverVersion,
+        DriverProviderName,
+        InfName,
+        @{Name="DriverDate";Expression={if ($_.DriverDate) { 
+            [datetime]::ParseExact($_.DriverDate, 'yyyyMMddHHmmss.000000+000', $null) 
+        } else { $null }}}},
+        Manufacturer,
+        DriverPath,
+        @{Name="BestGuessDriverFullPath";Expression={
+            $sysFile = $_.DriverPath
+            if ($sysFile -and $sysFile.EndsWith(".sys")) {
+                $fileName = [System.IO.Path]::GetFileName($sysFile)
+                $paths = @(
+                    "C:\Windows\System32\drivers\$fileName",
+                    "C:\Windows\System32\DriverStore\FileRepository\$fileName"
+                )
+                foreach ($p in $paths) {
+                    if (Test-Path $p) { return $p }
+                }
+                return $paths[0]
+            } else {
+                return "Unknown"
+            }
+        }},
+        @{Name="FullInfFilePath";Expression={
+            $infFile = $_.InfName
+            $infPaths = @(
+                "C:\Windows\INF\$infFile",
+                "C:\Windows\System32\DriverStore\FileRepository\$infFile"
+            )
+            foreach ($p in $infPaths) {
+                if (Test-Path $p) { return $p }
+            }
+            return "INF not found"
+        }}
+
+    $driverInfo | Format-Table -AutoSize
+    $driverInfo | Export-Csv -Path $outputPath -NoTypeInformation -Encoding UTF8
+
+    Write-Host "`nInstalled driver summary exported to:" -ForegroundColor Cyan
+    Write-Host $outputPath -ForegroundColor Green
+
+    Read-Host -Prompt "Press Enter to return to Driver Validation Menu"
+}
+
 function Run-ValidationScripts {
     do {
         Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
