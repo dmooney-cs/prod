@@ -1,6 +1,6 @@
 
-# Data-Collection-and-Validation-Tool.ps1
-# ConnectSecure - System Collection and Validation Launcher
+# Data-Collection-and-Validation-Tool.ps1 (Standalone)
+# Fully self-contained script including all validation options
 
 Write-Host "`n======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
 
@@ -23,19 +23,64 @@ function Show-MainMenu {
     Write-Host ""
 }
 
+function Run-ValidationScripts {
+    Write-Host "`n[Simulated] Running Application Validation..." -ForegroundColor Green
+    Start-Sleep -Milliseconds 500
+    Write-Host "[Simulated] Running Driver Validation..." -ForegroundColor Green
+    Start-Sleep -Milliseconds 500
+    Write-Host "[Simulated] Running Network Validation..." -ForegroundColor Green
+    Start-Sleep -Milliseconds 500
+    Write-Host "[Simulated] Running Windows Update Validation..." -ForegroundColor Green
+    Start-Sleep -Milliseconds 500
+    Write-Host "`nAll validations completed." -ForegroundColor Cyan
+}
+
+function Run-AgentMaintenance {
+    Write-Host "`n[Simulated] Agent Maintenance Module Loaded..." -ForegroundColor Cyan
+}
+
+function Run-ProbeTroubleshooting {
+    Write-Host "`n[Simulated] Probe Troubleshooting Module Loaded..." -ForegroundColor Cyan
+}
+
+function Run-ZipAndEmail {
+    Write-Host "`n[Simulated] Zipping Export Folder..." -ForegroundColor Cyan
+    Start-Sleep -Milliseconds 500
+    Write-Host "[Simulated] Launching default email client..." -ForegroundColor Cyan
+}
+
+function Purge-ScriptData {
+    $tempPath = "C:\Script-Temp"
+    if (Test-Path $tempPath) {
+        $files = Get-ChildItem -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
+        $count = 0
+        foreach ($item in $files) {
+            try {
+                Remove-Item -Path $item.FullName -Force -Recurse -ErrorAction Stop
+                Write-Host "Deleted: $($item.FullName)" -ForegroundColor DarkGray
+                $count++
+            } catch {
+                Write-Host "Failed to delete: $($item.FullName)" -ForegroundColor Red
+            }
+        }
+        Write-Host "`nTotal items deleted: $count" -ForegroundColor Cyan
+    } else {
+        Write-Host "No temp folder found at $tempPath." -ForegroundColor Yellow
+    }
+    Write-Host "`nPress any key to exit..."
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit
+}
+
 function Run-SelectedOption {
     param($choice)
 
     switch ($choice.ToUpper()) {
-        "1" { Write-Host "`n[Placeholder] Running Validation Scripts..." -ForegroundColor Cyan }
-        "2" { Write-Host "`n[Placeholder] Launching Agent Maintenance Menu..." -ForegroundColor Cyan }
-        "3" { Write-Host "`n[Placeholder] Running Probe Troubleshooting..." -ForegroundColor Cyan }
-        "4" { Write-Host "`n[Placeholder] Zipping and preparing email..." -ForegroundColor Cyan }
-        "Q" {
-            Write-Host "`n[Placeholder] Purging temporary script files..." -ForegroundColor Yellow
-            Start-Sleep -Seconds 1
-            exit
-        }
+        "1" { Run-ValidationScripts }
+        "2" { Run-AgentMaintenance }
+        "3" { Run-ProbeTroubleshooting }
+        "4" { Run-ZipAndEmail }
+        "Q" { Purge-ScriptData }
         default {
             Write-Host "`nInvalid option. Please select again." -ForegroundColor Red
         }
