@@ -149,6 +149,75 @@ function Run-OfficeValidation {
     }
 }
 
+function Run-DriverValidation {
+    # Define export path
+    $exportFolder = "C:\Script-Export"
+    if (-not (Test-Path $exportFolder)) {
+        New-Item -Path $exportFolder -ItemType Directory | Out-Null
+    }
+
+    # Timestamp and hostname for export file
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $hostname = $env:COMPUTERNAME
+    $outputPath = "$exportFolder\Installed_Drivers_${hostname}_$timestamp.csv"
+
+    # Get all installed drivers
+    $drivers = Get-WmiObject Win32_PnPSignedDriver | Sort-Object DeviceName
+
+    # Select and enhance driver details
+    $driverInfo = $drivers | Select-Object `
+        DeviceName,
+        DeviceID,
+        DriverVersion,
+        DriverProviderName,
+        InfName,
+        @{Name="DriverDate";Expression={if ($_.DriverDate) { 
+            [datetime]::ParseExact($_.DriverDate, 'yyyyMMddHHmmss.000000+000', $null) 
+        } else { $null }}}},
+        Manufacturer,
+        DriverPath,
+        @{Name="BestGuessDriverFullPath";Expression={
+            $sysFile = $_.DriverPath
+            if ($sysFile -and $sysFile.EndsWith(".sys")) {
+                $fileName = [System.IO.Path]::GetFileName($sysFile)
+                $paths = @(
+                    "C:\Windows\System32\drivers\$fileName",
+                    "C:\Windows\System32\DriverStore\FileRepository\$fileName"
+                )
+                foreach ($p in $paths) {
+                    if (Test-Path $p) { return $p }
+                }
+                return $paths[0]
+            } else {
+                return "Unknown"
+            }
+        }},
+        @{Name="FullInfFilePath";Expression={
+            $infFile = $_.InfName
+            $infPaths = @(
+                "C:\Windows\INF\$infFile",
+                "C:\Windows\System32\DriverStore\FileRepository\$infFile"
+            )
+            foreach ($p in $infPaths) {
+                if (Test-Path $p) { return $p }
+            }
+            return "INF not found"
+        }}
+
+    # Display results
+    $driverInfo | Format-Table -AutoSize
+
+    # Export to CSV
+    $driverInfo | Export-Csv -Path $outputPath -NoTypeInformation -Encoding UTF8
+
+    # Completion message
+    Write-Host "`nInstalled driver summary exported to:" -ForegroundColor Cyan
+    Write-Host $outputPath -ForegroundColor Green
+
+    # Pause before exit
+    Read-Host -Prompt "Press Enter to exit"
+}
+
 function Run-ValidationScripts {
     do {
         Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
