@@ -67,7 +67,7 @@ function Run-OfficeValidation {
     foreach ($regPath in $registryPaths) {
         Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue | ForEach-Object {
             if ($_.DisplayName) {
-                if ($appFilter -eq "" -or $_.DisplayName -like $appFilter) {
+                if ($appFilter -eq "" -or $_.DisplayName.ToLower() -like $appFilter.ToLower()) {
                     $category = "Application"
                     $registryPath = $_.PSPath -replace "^Microsoft.PowerShell.Core\\\\Registry::", ""
                     $installLocation = if ($_.InstallLocation) { $_.InstallLocation } else { "N/A" }
@@ -90,7 +90,7 @@ function Run-OfficeValidation {
     }
 
     Get-AppxPackage | ForEach-Object {
-        if ($appFilter -eq "" -or $_.Name -like $appFilter -or $_.PackageFullName -like $appFilter) {
+        if ($appFilter -eq "" -or $_.Name.ToLower() -like $appFilter.ToLower() -or $_.PackageFullName.ToLower() -like $appFilter.ToLower()) {
             $category = "Microsoft Store App"
             $installLocation = if ($_.InstallLocation) { $_.InstallLocation } else { "N/A" }
 
