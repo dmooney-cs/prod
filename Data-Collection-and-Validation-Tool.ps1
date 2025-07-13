@@ -173,7 +173,7 @@ function Run-DriverValidation {
         InfName,
         @{Name="DriverDate";Expression={if ($_.DriverDate) { 
             [datetime]::ParseExact($_.DriverDate, 'yyyyMMddHHmmss.000000+000', $null) 
-        } else { $null }}}},
+        } else { $null }}},
         Manufacturer,
         DriverPath,
         @{Name="BestGuessDriverFullPath";Expression={
@@ -253,7 +253,7 @@ function Show-AllDrivers {
         InfName,
         @{Name="DriverDate";Expression={if ($_.DriverDate) { 
             [datetime]::ParseExact($_.DriverDate, 'yyyyMMddHHmmss.000000+000', $null) 
-        } else { $null }}}},
+        } else { $null }}},
         Manufacturer,
         DriverPath,
         @{Name="BestGuessDriverFullPath";Expression={
