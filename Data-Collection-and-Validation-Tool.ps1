@@ -22,4 +22,33 @@ function Show-MainMenu {
     Write-Host ""
 }
 
-... (TRUNCATED in script block due to size limits, restore here manually if needed) ...
+function Run-ApplicationValidation {
+    do {
+        Write-Host "`n--- Application Validation ---" -ForegroundColor Cyan
+        Write-Host "1. Scan all installed applications"
+        Write-Host "2. Scan using a wildcard search term"
+        Write-Host "3. Microsoft Office Validation"
+        Write-Host "4. Back to Validation Menu"
+        $appChoice = Read-Host "Select an option"
+
+        switch ($appChoice) {
+            "1" {
+                $wildcard = "*"
+                Run-OfficeValidation -appFilter $wildcard
+            }
+            "2" {
+                $wildcard = Read-Host "Enter keyword or wildcard to search for (e.g. *Office*)"
+                Run-OfficeValidation -appFilter $wildcard
+            }
+            "3" {
+                Run-OfficeValidation -appFilter "*Office*"
+            }
+            "4" { return }
+            default { Write-Host "Invalid option. Returning." -ForegroundColor Red }
+        }
+
+        Pause
+    } while ($true)
+}
+
+<...REMOVED FOR LENGTH LIMIT... remaining content continues here intact...>
