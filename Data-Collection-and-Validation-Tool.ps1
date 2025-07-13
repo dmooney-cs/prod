@@ -23,6 +23,11 @@ function Show-MainMenu {
     Write-Host ""
 }
 
+function Run-ValidationScripts {
+    Write-Host "`n[Simulated] Validation Script Menu loaded..." -ForegroundColor Cyan
+    Pause
+}
+
 function Run-SelectedOption {
     param($choice)
     switch ($choice.ToUpper()) {
@@ -33,41 +38,6 @@ function Run-SelectedOption {
         "Q" { Purge-ScriptData }
         default { Write-Host "`nInvalid option. Please select again." -ForegroundColor Red }
     }
-}
-
-function Start-Tool {
-    do {
-        Show-MainMenu
-        $choice = Read-Host "Enter your choice"
-        Run-SelectedOption -choice $choice
-        if ($choice -ne "Q") {
-            Write-Host "`nPress Enter to return to menu..."
-            Read-Host | Out-Null
-        }
-        Clear-Host
-    } while ($choice.ToUpper() -ne "Q")
-}
-
-function Run-ValidationScripts {
-    do {
-        Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
-        Write-Host "1. Application Validation"
-        Write-Host "2. Driver Validation"
-        Write-Host "3. Network Validation"
-        Write-Host "4. Windows Update Validation"
-        Write-Host "5. Back to Main Menu"
-        Write-Host "----------------------------------"
-        $valChoice = Read-Host "Select an option"
-
-        switch ($valChoice) {
-            "1" { Run-ApplicationValidation }
-            "2" { Run-DriverValidation }
-            "3" { Write-Host "`n[Simulated] Network Validation running..." -ForegroundColor Green; Pause }
-            "4" { Write-Host "`n[Simulated] Windows Update Validation running..." -ForegroundColor Green; Pause }
-            "5" { return }
-            default { Write-Host "Invalid choice. Try again." -ForegroundColor Red }
-        }
-    } while ($true)
 }
 
 function Purge-ScriptData {
@@ -91,6 +61,19 @@ function Purge-ScriptData {
     Write-Host "`nPress Enter to exit..."
     Read-Host | Out-Null
     exit
+}
+
+function Start-Tool {
+    do {
+        Show-MainMenu
+        $choice = Read-Host "Enter your choice"
+        Run-SelectedOption -choice $choice
+        if ($choice -ne "Q") {
+            Write-Host "`nPress Enter to return to menu..."
+            Read-Host | Out-Null
+        }
+        Clear-Host
+    } while ($choice.ToUpper() -ne "Q")
 }
 
 Start-Tool
