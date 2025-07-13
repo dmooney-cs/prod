@@ -1,6 +1,6 @@
 
-# Data-Collection-and-Validation-Tool.ps1 (Standalone)
-# Fully self-contained script including all validation options
+# Data-Collection-and-Validation-Tool.ps1
+# ConnectSecure - System Collection and Validation Launcher
 
 Write-Host "`n======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
 
@@ -24,15 +24,29 @@ function Show-MainMenu {
 }
 
 function Run-ValidationScripts {
-    Write-Host "`n[Simulated] Running Application Validation..." -ForegroundColor Green
-    Start-Sleep -Milliseconds 500
-    Write-Host "[Simulated] Running Driver Validation..." -ForegroundColor Green
-    Start-Sleep -Milliseconds 500
-    Write-Host "[Simulated] Running Network Validation..." -ForegroundColor Green
-    Start-Sleep -Milliseconds 500
-    Write-Host "[Simulated] Running Windows Update Validation..." -ForegroundColor Green
-    Start-Sleep -Milliseconds 500
-    Write-Host "`nAll validations completed." -ForegroundColor Cyan
+    do {
+        Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
+        Write-Host "1. Application Validation"
+        Write-Host "2. Driver Validation"
+        Write-Host "3. Network Validation"
+        Write-Host "4. Windows Update Validation"
+        Write-Host "5. Back to Main Menu"
+        Write-Host "----------------------------------"
+        $valChoice = Read-Host "Select an option"
+
+        switch ($valChoice) {
+            "1" { Write-Host "`n[Placeholder] Application Validation running..." -ForegroundColor Green }
+            "2" { Write-Host "`n[Placeholder] Driver Validation running..." -ForegroundColor Green }
+            "3" { Write-Host "`n[Placeholder] Network Validation running..." -ForegroundColor Green }
+            "4" { Write-Host "`n[Placeholder] Windows Update Validation running..." -ForegroundColor Green }
+            "5" { return }
+            default { Write-Host "Invalid choice. Try again." -ForegroundColor Red }
+        }
+
+        Write-Host "`nPress Enter to return to Validation Menu..."
+        [void][System.Console]::ReadLine()
+        Clear-Host
+    } while ($true)
 }
 
 function Run-AgentMaintenance {
