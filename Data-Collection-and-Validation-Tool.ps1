@@ -1,9 +1,3 @@
-function Run-RoamingProfileValidation {
-    $exportFolder = "C:\Script-Export"
-    if (-not (Test-Path -Path $exportFolder)) {
-        New-Item -Path $exportFolder -ItemType Directory
-    }
-
     $hostname = $env:COMPUTERNAME
     $currentDate = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $csvFile = "$exportFolder\Profiles_Applications_$hostname" + "_" + $currentDate + ".csv"
@@ -238,7 +232,7 @@ function Run-ValidationDetailsMenu {
         switch ($subChoice) {
             "1" { Run-OfficeValidation }
             "2" { Run-DriverValidation }
-            "3" { Run-RoamingProfileValidation }
+            "3" { Write-Host "`n[Pending] Roaming Profile Validation" -ForegroundColor Yellow; Pause }
             "4" { return }
             default { Write-Host "Invalid option." -ForegroundColor Red }
         }
