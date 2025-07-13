@@ -162,7 +162,7 @@ function Run-ValidationScripts {
 
         switch ($valChoice) {
             "1" { Run-ApplicationValidation }
-            "2" { Write-Host "`n[Simulated] Driver Validation running..." -ForegroundColor Green; Pause }
+            "2" { Run-DriverValidation }
             "3" { Write-Host "`n[Simulated] Network Validation running..." -ForegroundColor Green; Pause }
             "4" { Write-Host "`n[Simulated] Windows Update Validation running..." -ForegroundColor Green; Pause }
             "5" { return }
