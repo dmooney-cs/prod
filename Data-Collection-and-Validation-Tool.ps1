@@ -1,6 +1,6 @@
 
 # Data-Collection-and-Validation-Tool.ps1
-# ConnectSecure - System Collection and Validation Launcher (Full with wildcard + safe exit)
+# ConnectSecure - System Collection and Validation Launcher (Integrated Office Validation)
 
 Write-Host "`n======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
 
@@ -24,53 +24,129 @@ function Show-MainMenu {
 }
 
 function Run-ApplicationValidation {
-    Write-Host "`n--- Application Validation ---" -ForegroundColor Cyan
-    Write-Host "1. Scan all installed applications"
-    Write-Host "2. Scan using a wildcard search term"
-    Write-Host "3. Back to Validation Menu"
-    $appChoice = Read-Host "Select an option"
-    switch ($appChoice) {
-        "1" {
-            Write-Host "`n[Simulated] Scanning all applications..." -ForegroundColor Green
+    do {
+        Write-Host "`n--- Application Validation ---" -ForegroundColor Cyan
+        Write-Host "1. Scan all installed applications"
+        Write-Host "2. Scan using a wildcard search term"
+        Write-Host "3. Microsoft Office Validation"
+        Write-Host "4. Back to Validation Menu"
+        $appChoice = Read-Host "Select an option"
+
+        switch ($appChoice) {
+            "1" {
+                $wildcard = "*"
+                Run-OfficeValidation -appFilter $wildcard
+            }
+            "2" {
+                $wildcard = Read-Host "Enter keyword or wildcard to search for (e.g. *Office*)"
+                Run-OfficeValidation -appFilter $wildcard
+            }
+            "3" {
+                Run-OfficeValidation -appFilter "*Office*"
+            }
+            "4" { return }
+            default { Write-Host "Invalid option. Returning." -ForegroundColor Red }
         }
-        "2" {
-            $term = Read-Host "Enter keyword or wildcard to search for (e.g. *Office*)"
-            Write-Host "`n[Simulated] Searching for: $term" -ForegroundColor Green
+
+        Pause
+    } while ($true)
+}
+
+function Run-OfficeValidation {
+    param([string]$appFilter)
+
+    Write-Host "`nScanning for installed applications matching: $appFilter" -ForegroundColor Cyan
+    $results = @()
+
+    $registryPaths = @(
+        "HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*",
+        "HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*",
+        "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*"
+    )
+
+    foreach ($regPath in $registryPaths) {
+        Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_.DisplayName) {
+                if ($appFilter -eq "" -or $_.DisplayName -like $appFilter) {
+                    $category = "Application"
+                    $registryPath = $_.PSPath -replace "^Microsoft.PowerShell.Core\\\\Registry::", ""
+                    $installLocation = if ($_.InstallLocation) { $_.InstallLocation } else { "N/A" }
+
+                    $results += [PSCustomObject]@{
+                        Name             = $_.DisplayName
+                        Version          = $_.DisplayVersion
+                        Publisher        = $_.Publisher
+                        InstallLocation  = $installLocation
+                        InstallDate      = $_.InstallDate
+                        InstalledBy      = $_.InstallSource
+                        Source           = "Registry"
+                        Category         = $category
+                        RegistryPath     = $registryPath
+                        ProfileType      = "N/A"
+                    }
+                }
+            }
         }
-        "3" { return }
-        default { Write-Host "Invalid option. Returning." -ForegroundColor Red }
     }
-    Pause
-}
 
-function Run-DriverValidation {
-    Write-Host "`n--- Driver Validation ---" -ForegroundColor Cyan
-    Write-Host "1. Scan all installed drivers"
-    Write-Host "2. Scan using a wildcard search term"
-    Write-Host "3. Back to Validation Menu"
-    $drvChoice = Read-Host "Select an option"
-    switch ($drvChoice) {
-        "1" {
-            Write-Host "`n[Simulated] Scanning all drivers..." -ForegroundColor Green
+    Get-AppxPackage | ForEach-Object {
+        if ($appFilter -eq "" -or $_.Name -like $appFilter -or $_.PackageFullName -like $appFilter) {
+            $category = "Microsoft Store App"
+            $installLocation = if ($_.InstallLocation) { $_.InstallLocation } else { "N/A" }
+
+            $results += [PSCustomObject]@{
+                Name             = $_.Name
+                Version          = $_.Version
+                Publisher        = $_.Publisher
+                InstallLocation  = $installLocation
+                InstallDate      = "N/A"
+                InstalledBy      = "N/A"
+                Source           = "Microsoft Store"
+                Category         = $category
+                RegistryPath     = "N/A"
+                ProfileType      = "N/A"
+            }
         }
-        "2" {
-            $term = Read-Host "Enter keyword or wildcard to search for (e.g. *NVIDIA*)"
-            Write-Host "`n[Simulated] Searching for: $term" -ForegroundColor Green
-        }
-        "3" { return }
-        default { Write-Host "Invalid option. Returning." -ForegroundColor Red }
     }
-    Pause
-}
 
-function Run-NetworkValidation {
-    Write-Host "`n[Simulated] Running Network Validation..." -ForegroundColor Green
-    Pause
-}
+    $teamsPaths = Get-ChildItem "C:\\Users\\*\\AppData\\Local\\Microsoft\\Teams\\Teams.exe" -Recurse -ErrorAction SilentlyContinue
+    foreach ($teamsPath in $teamsPaths) {
+        $version = (Get-Item $teamsPath.FullName).VersionInfo.FileVersion
+        $installLocation = $teamsPath.DirectoryName
 
-function Run-WindowsUpdateValidation {
-    Write-Host "`n[Simulated] Running Windows Update Validation..." -ForegroundColor Green
-    Pause
+        $results += [PSCustomObject]@{
+            Name             = 'Microsoft Teams'
+            Version          = $version
+            Publisher        = 'Microsoft'
+            InstallLocation  = $installLocation
+            InstallDate      = "N/A"
+            InstalledBy      = "N/A"
+            Source           = "Teams (Local)"
+            Category         = "Microsoft Store App"
+            RegistryPath     = "N/A"
+            ProfileType      = "N/A"
+        }
+    }
+
+    if ($results.Count -eq 0) {
+        Write-Host "No matching applications found." -ForegroundColor Yellow
+    } else {
+        Write-Host "`nDetected Applications:" -ForegroundColor Green
+        $results | Sort-Object Name | Format-Table Name, Version, Publisher, InstallLocation, InstallDate, InstalledBy, Category, Source -AutoSize
+
+        $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        $hostname = $env:COMPUTERNAME
+        $exportPath = "C:\\Script-Export"
+
+        if (-not (Test-Path -Path $exportPath)) {
+            New-Item -Path $exportPath -ItemType Directory
+            Write-Host "Created folder: $exportPath" -ForegroundColor Cyan
+        }
+
+        $csvPath = "$exportPath\\All Applications Detected - $dateTime - $hostname.csv"
+        $results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+        Write-Host "`nResults exported to: $csvPath" -ForegroundColor Green
+    }
 }
 
 function Run-ValidationScripts {
@@ -86,35 +162,21 @@ function Run-ValidationScripts {
 
         switch ($valChoice) {
             "1" { Run-ApplicationValidation }
-            "2" { Run-DriverValidation }
-            "3" { Run-NetworkValidation }
-            "4" { Run-WindowsUpdateValidation }
+            "2" { Write-Host "`n[Simulated] Driver Validation running..." -ForegroundColor Green; Pause }
+            "3" { Write-Host "`n[Simulated] Network Validation running..." -ForegroundColor Green; Pause }
+            "4" { Write-Host "`n[Simulated] Windows Update Validation running..." -ForegroundColor Green; Pause }
             "5" { return }
             default { Write-Host "Invalid choice. Try again." -ForegroundColor Red }
         }
-
     } while ($true)
 }
 
-function Run-AgentMaintenance {
-    Write-Host "`n[Simulated] Agent Maintenance Module Loaded..." -ForegroundColor Cyan
-    Pause
-}
-
-function Run-ProbeTroubleshooting {
-    Write-Host "`n[Simulated] Probe Troubleshooting Module Loaded..." -ForegroundColor Cyan
-    Pause
-}
-
-function Run-ZipAndEmail {
-    Write-Host "`n[Simulated] Zipping Export Folder..." -ForegroundColor Cyan
-    Start-Sleep -Milliseconds 500
-    Write-Host "[Simulated] Launching default email client..." -ForegroundColor Cyan
-    Pause
-}
+function Run-AgentMaintenance { Write-Host "`n[Simulated] Agent Maintenance..." -ForegroundColor Cyan; Pause }
+function Run-ProbeTroubleshooting { Write-Host "`n[Simulated] Probe Troubleshooting..." -ForegroundColor Cyan; Pause }
+function Run-ZipAndEmail { Write-Host "`n[Simulated] Zipping results and launching email..." -ForegroundColor Cyan; Pause }
 
 function Purge-ScriptData {
-    $tempPath = "C:\Script-Temp"
+    $tempPath = "C:\\Script-Temp"
     if (Test-Path $tempPath) {
         $files = Get-ChildItem -Path $tempPath -Recurse -Force -ErrorAction SilentlyContinue
         $count = 0
@@ -138,16 +200,13 @@ function Purge-ScriptData {
 
 function Run-SelectedOption {
     param($choice)
-
     switch ($choice.ToUpper()) {
         "1" { Run-ValidationScripts }
         "2" { Run-AgentMaintenance }
         "3" { Run-ProbeTroubleshooting }
         "4" { Run-ZipAndEmail }
         "Q" { Purge-ScriptData }
-        default {
-            Write-Host "`nInvalid option. Please select again." -ForegroundColor Red
-        }
+        default { Write-Host "`nInvalid option. Please select again." -ForegroundColor Red }
     }
 }
 
