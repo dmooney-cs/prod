@@ -1,3 +1,4 @@
+# Main Menu Function
 function Show-MainMenu {
     Clear-Host
     Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
@@ -8,6 +9,7 @@ function Show-MainMenu {
     Write-Host "Q. Close and Purge Script Data"
 }
 
+# Validation Scripts Menu
 function Run-ValidationScripts {
     do {
         Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
@@ -20,7 +22,7 @@ function Run-ValidationScripts {
         Write-Host "7. Windows Patch Details"
         Write-Host "8. Back to Main Menu"
         $valChoice = Read-Host "Select an option"
-        
+
         switch ($valChoice) {
             "1" { Run-OfficeValidation }
             "2" { Run-DriverValidation }
@@ -35,6 +37,7 @@ function Run-ValidationScripts {
     } while ($true)
 }
 
+# Office Validation Function
 function Run-OfficeValidation {
     $appFilter = Read-Host "Enter a keyword to filter applications (or press Enter to list all)"
     $results = @()
@@ -89,6 +92,7 @@ function Run-OfficeValidation {
     Write-Host "Exported to: $file" -ForegroundColor Green
 }
 
+# Driver Validation Function
 function Run-DriverValidation {
     $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $hostname = $env:COMPUTERNAME
@@ -107,6 +111,7 @@ function Run-DriverValidation {
     Write-Host "Exported to: $exportPath" -ForegroundColor Green
 }
 
+# Roaming Profile Validation Function
 function Run-RoamingProfileValidation {
     $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $hostname = $env:COMPUTERNAME
@@ -128,11 +133,13 @@ function Run-RoamingProfileValidation {
     Write-Host "Exported to: $csvFile" -ForegroundColor Green
 }
 
+# Browser Extension Details Function
 function Run-BrowserExtensionDetails {
     Write-Host "Standard browser extension collection not implemented in this version." -ForegroundColor Yellow
     Read-Host -Prompt "Press any key to continue"
 }
 
+# OSQuery Browser Extensions Function
 function Run-OSQueryBrowserExtensions {
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
@@ -201,6 +208,7 @@ GROUP BY unique_id;
     Read-Host -Prompt "`nPress any key to exit"
 }
 
+# SSL Cipher Validation Function
 function Run-SSLCipherValidation {
     $exportDir = "C:\Script-Export"
     if (-not (Test-Path $exportDir)) {
