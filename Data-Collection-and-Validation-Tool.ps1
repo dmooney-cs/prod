@@ -162,9 +162,9 @@ function Run-SSLCipherValidation {
 function Run-WindowsPatchDetails {
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
-    $out1 = "C:\Script-Export\HotFix-Report\GetHotFix-$timestamp-$hostname.csv"
-    $out2 = "C:\Script-Export\WMIC-Patch-Report\WMIC-Patches-$timestamp-$hostname.csv"
-    $out3 = "C:\Script-Export\OSQuery-Patch-Report\OSQuery-Patches-$timestamp-$hostname.csv"
+    $out1 = "C:\Script-Export\WindowsPatches-GetHotFix-$timestamp-$hostname.csv"
+    $out2 = "C:\Script-Export\WindowsPatches-WMIC-$timestamp-$hostname.csv"
+    $out3 = "C:\Script-Export\WindowsPatches-OSQuery-$timestamp-$hostname.csv"
 
     if (-not (Test-Path (Split-Path $out1))) { New-Item -ItemType Directory -Path (Split-Path $out1) | Out-Null }
     if (-not (Test-Path (Split-Path $out2))) { New-Item -ItemType Directory -Path (Split-Path $out2) | Out-Null }
