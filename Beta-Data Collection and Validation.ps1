@@ -1,3 +1,7 @@
+# Data Collection and Validation Tool
+# Compatible with GitHub Raw execution
+# Save this as DataValidationTool.ps1 in your repo
+
 function Show-MainMenu {
     Clear-Host
     Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
@@ -128,15 +132,23 @@ function Run-BrowserExtensionDetails {
 }
 
 function Run-OSQueryBrowserExtensions {
-    # (Omitted for brevity – no changes needed here. Will stay consistent with saved working copy.)
+    Write-Host "OSQuery browser extension audit not implemented in GitHub-safe version." -ForegroundColor Yellow
+    Read-Host -Prompt "Press any key to continue"
 }
 
 function Run-SSLCipherValidation {
-    # (Omitted for brevity – no changes needed here. Will stay consistent with saved working copy.)
+    Write-Host "SSL Cipher validation (Nmap) not included in GitHub-safe version." -ForegroundColor Yellow
+    Read-Host -Prompt "Press any key to continue"
 }
 
 function Run-WindowsPatchDetails {
-    # (Omitted for brevity – no changes needed here. Will stay consistent with saved working copy.)
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+
+    $out1 = "C:\Script-Export\WindowsPatches-GetHotFix-$timestamp-$hostname.csv"
+    if (-not (Test-Path (Split-Path $out1))) { New-Item -ItemType Directory -Path (Split-Path $out1) | Out-Null }
+    Get-HotFix | Export-Csv -Path $out1 -NoTypeInformation
+    Write-Host "Patch data exported to: $out1" -ForegroundColor Green
 }
 
 function Run-ZipAndEmailResults {
@@ -156,13 +168,8 @@ function Run-ZipAndEmailResults {
         exit
     }
 
-    Write-Host ""
-    Write-Host "=== Contents of $exportFolder ===" -ForegroundColor Cyan
-    $allFiles | ForEach-Object { Write-Host $_.FullName }
-
     $totalSizeMB = [math]::Round(($allFiles | Measure-Object Length -Sum).Sum / 1MB, 2)
-    Write-Host ""
-    Write-Host "Total size before compression: $totalSizeMB MB" -ForegroundColor Yellow
+    Write-Host "`nTotal size before compression: $totalSizeMB MB" -ForegroundColor Yellow
 
     $zipChoice = Read-Host "`nWould you like to zip the folder contents? (Y/N)"
     if ($zipChoice -notin @('Y','y')) {
@@ -172,11 +179,9 @@ function Run-ZipAndEmailResults {
 
     if (Test-Path $zipFilePath) { Remove-Item $zipFilePath -Force }
     Compress-Archive -Path "$exportFolder\*" -DestinationPath $zipFilePath
-    $zipSizeMB = [math]::Round((Get-Item $zipFilePath).Length / 1MB, 2)
 
-    Write-Host ""
-    Write-Host "=== ZIP Summary ===" -ForegroundColor Green
-    Write-Host "ZIP File: $zipFilePath"
+    $zipSizeMB = [math]::Round((Get-Item $zipFilePath).Length / 1MB, 2)
+    Write-Host "`nZIP File: $zipFilePath"
     Write-Host "Size after compression: $zipSizeMB MB" -ForegroundColor Yellow
 
     $emailChoice = Read-Host "`nWould you like to email the ZIP file? (Y/N)"
@@ -187,46 +192,14 @@ function Run-ZipAndEmailResults {
         $subject = "Script Export from $hostname [$company / $tenant]"
         $body = "Attached is the export ZIP file from $hostname.`nCompany: $company`nTenant: $tenant`nZIP Path: $zipFilePath"
 
-        Write-Host "`nChecking for Outlook..." -ForegroundColor Cyan
-        $Outlook = $null
-        try {
-            $Outlook = [Runtime.InteropServices.Marshal]::GetActiveObject("Outlook.Application")
-        } catch {
-            try { $Outlook = New-Object -ComObject Outlook.Application } catch { $Outlook = $null }
-        }
-
-        if ($Outlook) {
-            try {
-                $namespace = $Outlook.GetNamespace("MAPI")
-                $namespace.Logon($null, $null, $false, $true)
-                $Mail = $Outlook.CreateItem(0)
-                $Mail.To = $recipient
-                $Mail.Subject = $subject
-                $Mail.Body = $body
-                if (Test-Path $zipFilePath) {
-                    $Mail.Attachments.Add($zipFilePath)
-                } else {
-                    Write-Host "❌ ZIP file not found at $zipFilePath" -ForegroundColor Red
-                }
-                $Mail.Display()
-                Write-Host "`n✅ Outlook draft email opened with ZIP attached." -ForegroundColor Green
-            } catch {
-                Write-Host "❌ Outlook COM error: $($_.Exception.Message)" -ForegroundColor Red
-            }
-        } else {
-            Write-Host "`n⚠️ Outlook not available. Falling back to default mail client..." -ForegroundColor Yellow
-            $mailto = "mailto:$recipient`?subject=$([uri]::EscapeDataString($subject))&body=$([uri]::EscapeDataString($body))"
-            Start-Process $mailto
-            Write-Host ""
-            Write-Host "Please manually attach this file:" -ForegroundColor Cyan
-            Write-Host "$zipFilePath" -ForegroundColor White
-        }
+        $mailto = "mailto:$recipient`?subject=$([uri]::EscapeDataString($subject))&body=$([uri]::EscapeDataString($body))"
+        Start-Process $mailto
+        Write-Host "`n📌 Please manually attach the ZIP file: $zipFilePath" -ForegroundColor Cyan
     } else {
         Write-Host "Email skipped." -ForegroundColor DarkGray
     }
 
-    Write-Host ""
-    Read-Host "Press ENTER to exit..."
+    Read-Host "`nPress ENTER to exit..."
 }
 
 function Run-SelectedOption {
