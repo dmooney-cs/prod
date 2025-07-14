@@ -1,3 +1,4 @@
+# Define the main menu
 function Show-MainMenu {
     Clear-Host
     Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
@@ -8,6 +9,7 @@ function Show-MainMenu {
     Write-Host "Q. Close and Purge Script Data"
 }
 
+# Validation Scripts Menu
 function Run-ValidationScripts {
     do {
         Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
@@ -34,7 +36,7 @@ function Run-ValidationScripts {
     } while ($true)
 }
 
-# Microsoft Office Validation Script
+# Microsoft Office Validation
 function Run-OfficeValidation {
     $appFilter = Read-Host "Enter a keyword to filter applications (or press Enter to list all)"
     $results = @()
@@ -90,7 +92,7 @@ function Run-OfficeValidation {
     Read-Host -Prompt "Press any key to continue"
 }
 
-# Driver Validation Script
+# Driver Validation
 function Run-DriverValidation {
     $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $hostname = $env:COMPUTERNAME
@@ -145,7 +147,7 @@ function Run-DriverValidation {
     Read-Host -Prompt "Press any key to continue"
 }
 
-# Browser Extension Details Script
+# Browser Extension Details
 function Run-BrowserExtensionDetails {
     $AllResults = @()
     $Users = Get-ChildItem 'C:\Users' -Directory | Where-Object { $_.Name -notin @('Default', 'Public', 'All Users') }
@@ -175,7 +177,7 @@ function Run-BrowserExtensionDetails {
     Read-Host -Prompt "Press any key to continue"
 }
 
-# SSL Cipher Validation Script
+# SSL Cipher Validation
 function Run-SSLCipherValidation {
     $exportDir = "C:\Script-Export"
     if (-not (Test-Path $exportDir)) {
@@ -284,18 +286,15 @@ function Run-SSLCipherValidation {
     Read-Host -Prompt "Press ENTER to exit..."
 }
 
-function Start-Tool {
-    do {
-        Show-MainMenu
-        $choice = Read-Host "Enter your choice"
-        switch ($choice.ToUpper()) {
-            "1" { Run-ValidationScripts }
-            "2" { Write-Host "[Placeholder] Agent Maintenance" }
-            "3" { Write-Host "[Placeholder] Probe Troubleshooting" }
-            "4" { Run-ZipAndEmailResults }
-            "Q" { exit }
-        }
-    } while ($choice.ToUpper() -ne "Q")
-}
-
-Start-Tool
+# Main Loop to start the tool
+do {
+    Show-MainMenu
+    $choice = Read-Host "Enter your choice"
+    switch ($choice.ToUpper()) {
+        "1" { Run-ValidationScripts }
+        "2" { Write-Host "[Placeholder] Agent Maintenance" }
+        "3" { Write-Host "[Placeholder] Probe Troubleshooting" }
+        "4" { Write-Host "[Placeholder] Zip and Email Results" }
+        "Q" { exit }
+    }
+} while ($choice.ToUpper() -ne "Q")
