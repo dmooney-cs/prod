@@ -1,5 +1,3 @@
-# Data-Collection-and-Validation-Tool.ps1
-
 function Show-MainMenu {
     Clear-Host
     Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
