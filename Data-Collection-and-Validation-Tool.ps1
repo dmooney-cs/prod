@@ -1,19 +1,3 @@
-<#
-Data Collection and Validation Tool - Master Script
-All Logic Inlined: Validation, Agent Maintenance, Troubleshooting, and Export
-#>
-
-# Create export directory
-$ExportDir = "C:\Script-Export"
-if (-not (Test-Path $ExportDir)) {
-    New-Item -Path $ExportDir -ItemType Directory | Out-Null
-}
-
-function Pause-Script {
-    Write-Host "`nPress any key to continue..." -ForegroundColor DarkGray
-    [void][System.Console]::ReadKey($true)
-}
-
 function Show-MainMenu {
     Clear-Host
     Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
@@ -50,6 +34,7 @@ function Run-ValidationScripts {
     } while ($true)
 }
 
+# Microsoft Office Validation Script
 function Run-OfficeValidation {
     $appFilter = Read-Host "Enter a keyword to filter applications (or press Enter to list all)"
     $results = @()
@@ -102,28 +87,33 @@ function Run-OfficeValidation {
     $file = "$path\OfficeApps-$timestamp-$hostname.csv"
     $results | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
     Write-Host "Exported to: $file" -ForegroundColor Green
+    Read-Host -Prompt "Press any key to continue"
 }
 
+# Driver Validation Script
 function Run-DriverValidation {
     $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $hostname = $env:COMPUTERNAME
     $exportPath = "C:\Script-Export\Installed_Drivers_${hostname}_$timestamp.csv"
+    
     $drivers = Get-WmiObject Win32_PnPSignedDriver | Sort-Object DeviceName
 
-    # Select and enhance driver details
     $driverInfo = $drivers | Select-Object `
-        DeviceName,
-        DeviceID,
-        DriverVersion,
-        DriverProviderName,
-        InfName,
-        @{Name="DriverDate";Expression={if ($_.DriverDate) { 
-            [datetime]::ParseExact($_.DriverDate, 'yyyyMMddHHmmss.000000+000', $null) 
-        } else { $null }}} ,
-        Manufacturer,
+        DeviceName, 
+        DeviceID, 
+        DriverVersion, 
+        DriverProviderName, 
+        InfName, 
+        @{Name="DriverDate";Expression={
+            if ($_.DriverDate) { 
+                [datetime]::ParseExact($_.DriverDate, 'yyyyMMddHHmmss.000000+000', $null) 
+            } else { 
+                $null 
+            }}},
+        Manufacturer, 
         DriverPath,
-        @{Name="BestGuessDriverFullPath";Expression={ 
-            $sysFile = $_.DriverPath 
+        @{Name="BestGuessDriverFullPath";Expression={
+            $sysFile = $_.DriverPath
             if ($sysFile -and $sysFile.EndsWith(".sys")) {
                 $fileName = [System.IO.Path]::GetFileName($sysFile)
                 $paths = @(
@@ -136,10 +126,9 @@ function Run-DriverValidation {
                 return $paths[0]
             } else {
                 return "Unknown"
-            }
-        }} ,
+            }}},
         @{Name="FullInfFilePath";Expression={
-            $infFile = $_.InfName 
+            $infFile = $_.InfName
             $infPaths = @(
                 "C:\Windows\INF\$infFile",
                 "C:\Windows\System32\DriverStore\FileRepository\$infFile"
@@ -150,108 +139,43 @@ function Run-DriverValidation {
             return "INF not found"
         }}
 
-    # Export to CSV
     $driverInfo | Export-Csv -Path $exportPath -NoTypeInformation -Encoding UTF8
-    Write-Host "Exported to: $exportPath" -ForegroundColor Green
-}
-
-function Run-RoamingProfileValidation {
-    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $hostname = $env:COMPUTERNAME
-    $csvFile = "C:\Script-Export\Profiles_Applications_$hostname_$timestamp.csv"
-    $profileData = @()
-    $profiles = Get-WmiObject -Class Win32_UserProfile | Where-Object { $_.Special -eq $false }
-    foreach ($p in $profiles) {
-        $name = $p.LocalPath.Split('\')[-1]
-        $apps = Get-ChildItem "C:\Users\$name\AppData\Local" -Directory -ErrorAction SilentlyContinue
-        foreach ($a in $apps) {
-            $profileData += [PSCustomObject]@{
-                ProfileName = $name
-                Application = $a.Name
-                Path = $a.FullName
-            }
-        }
-    }
-    $profileData | Export-Csv -Path $csvFile -NoTypeInformation
-    Write-Host "Exported to: $csvFile" -ForegroundColor Green
-}
-
-function Run-BrowserExtensionDetails {
-    Write-Host "Standard browser extension collection not implemented in this version." -ForegroundColor Yellow
+    Write-Host "`nInstalled driver summary exported to:" -ForegroundColor Cyan
+    Write-Host $exportPath -ForegroundColor Green
     Read-Host -Prompt "Press any key to continue"
 }
 
-function Run-OSQueryBrowserExtensions {
-    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+# Browser Extension Details Script
+function Run-BrowserExtensionDetails {
+    $AllResults = @()
+    $Users = Get-ChildItem 'C:\Users' -Directory | Where-Object { $_.Name -notin @('Default', 'Public', 'All Users') }
+
+    foreach ($user in $Users) {
+        $profilePath = $user.FullName
+        $chromePath = Join-Path $profilePath 'AppData\Local\Google\Chrome\User Data\Default\Extensions'
+        $AllResults += Get-ChromeEdgeExtensions -BrowserName 'Chrome' -BasePath $chromePath
+
+        $edgePath = Join-Path $profilePath 'AppData\Local\Microsoft\Edge\User Data\Default\Extensions'
+        $AllResults += Get-ChromeEdgeExtensions -BrowserName 'Edge' -BasePath $edgePath
+
+        $AllResults += Get-FirefoxExtensions -UserProfile $profilePath
+    }
+
+    $SortedResults = $AllResults | Sort-Object Browser
+
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $hostname = $env:COMPUTERNAME
-    $outputDir = "C:\Script-Export"
-    $outputCsv = "$outputDir\OSquery-browserext-$timestamp-$hostname.csv"
-    $outputJson = "$outputDir\RawBrowserExt-$timestamp-$hostname.json"
+    $exportPath = "C:\Script-Export"
+    if (-not (Test-Path $exportPath)) { New-Item $exportPath -ItemType Directory }
 
-    if (-not (Test-Path $outputDir)) {
-        New-Item -Path $outputDir -ItemType Directory | Out-Null
-    }
+    $csvPath = Join-Path $exportPath "BrowserExtensions_$timestamp`_$hostname.csv"
+    $SortedResults | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
 
-    $osqueryPaths = @(
-        "C:\Program Files (x86)\CyberCNSAgent\osqueryi.exe",
-        "C:\Windows\CyberCNSAgent\osqueryi.exe"
-    )
-
-    $osquery = $osqueryPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
-
-    if (-not $osquery) {
-        Write-Host "❌ osqueryi.exe not found in expected locations." -ForegroundColor Red
-        Read-Host -Prompt "Press any key to exit"
-        exit
-    }
-
-    Push-Location (Split-Path $osquery)
-    $sqlQuery = @"
-SELECT name, browser_type, version, path, sha1(name || path) AS unique_id 
-FROM chrome_extensions 
-WHERE chrome_extensions.uid IN (SELECT uid FROM users) 
-GROUP BY unique_id;
-"@
-    $json = & .\osqueryi.exe --json "$sqlQuery" 2>$null
-    Pop-Location
-
-    Set-Content -Path $outputJson -Value $json
-
-    if (-not $json) {
-        Write-Host "⚠️ No browser extension data returned by osquery." -ForegroundColor Yellow
-        Write-Host "`nRaw JSON saved for review:" -ForegroundColor DarkGray
-        Write-Host "$outputJson" -ForegroundColor Cyan
-        Read-Host -Prompt "Press any key to continue"
-        exit
-    }
-
-    try {
-        $parsed = $json | ConvertFrom-Json
-
-        if ($parsed.Count -eq 0) {
-            Write-Host "⚠️ No browser extensions found." -ForegroundColor Yellow
-        } else {
-            Write-Host "`n✅ Extensions found: $($parsed.Count)" -ForegroundColor Green
-            Write-Host "--------------------------------------------------" -ForegroundColor DarkGray
-            foreach ($ext in $parsed) {
-                Write-Host "• $($ext.name) ($($ext.browser_type)) — $($ext.version)" -ForegroundColor White
-            }
-            Write-Host "--------------------------------------------------" -ForegroundColor DarkGray
-            $parsed | Export-Csv -Path $outputCsv -NoTypeInformation -Encoding UTF8
-        }
-    } catch {
-        Write-Host "❌ Failed to parse or export data." -ForegroundColor Red
-        Read-Host -Prompt "Press any key to continue"
-        exit
-    }
-
-    Write-Host "`n📁 Output Files:" -ForegroundColor Yellow
-    Write-Host "• CSV:  $outputCsv" -ForegroundColor Cyan
-    Write-Host "• JSON: $outputJson" -ForegroundColor Cyan
-
-    Read-Host -Prompt "`nPress any key to exit"
+    Write-Host "`nReport saved to: $csvPath" -ForegroundColor Green
+    Read-Host -Prompt "Press any key to continue"
 }
 
+# SSL Cipher Validation Script
 function Run-SSLCipherValidation {
     $exportDir = "C:\Script-Export"
     if (-not (Test-Path $exportDir)) {
@@ -355,46 +279,23 @@ function Run-SSLCipherValidation {
     Write-Host "`n✅ Scan complete. Results saved to:" -ForegroundColor Green
     Write-Host "$outputFile" -ForegroundColor Green
     Log-Action "Results saved to $outputFile"
-
     Log-Action "SSL Cipher Scan completed"
 
-    Write-Host ""
     Read-Host -Prompt "Press ENTER to exit..."
 }
 
-function Run-WindowsPatchDetails {
-    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $hostname = $env:COMPUTERNAME
-
-    $out1 = "C:\Script-Export\WindowsPatches-GetHotFix-$timestamp-$hostname.csv"
-    $out2 = "C:\Script-Export\WindowsPatches-WMIC-$timestamp-$hostname.csv"
-    $out3 = "C:\Script-Export\WindowsPatches-OSQuery-$timestamp-$hostname.csv"
-
-    if (-not (Test-Path (Split-Path $out1))) { New-Item -ItemType Directory -Path (Split-Path $out1) | Out-Null }
-    if (-not (Test-Path (Split-Path $out2))) { New-Item -ItemType Directory -Path (Split-Path $out2) | Out-Null }
-    if (-not (Test-Path (Split-Path $out3))) { New-Item -ItemType Directory -Path (Split-Path $out3) | Out-Null }
-
-    Get-HotFix | Export-Csv -Path $out1 -NoTypeInformation
-    $wmicOut = (wmic qfe get HotfixID | findstr /v HotFixID) -split "`r`n" | Where-Object { $_ } |
-        ForEach-Object { [PSCustomObject]@{ HotfixID = $_.Trim(); Source = "WMIC" } }
-    $wmicOut | Export-Csv -Path $out2 -NoTypeInformation
-
-    $osquery = "C:\Program Files (x86)\CyberCNSAgent\osqueryi.exe"
-    if (Test-Path $osquery) {
-        $query = "select hotfix_id, description from patches;"
-        $output = & $osquery --json "$query"
-        if ($output) {
-            try {
-                $parsed = $output | ConvertFrom-Json
-                $parsed | Export-Csv -Path $out3 -NoTypeInformation
-            } catch {
-                Write-Warning "Failed to parse osquery JSON output: $_"
-            }
+function Start-Tool {
+    do {
+        Show-MainMenu
+        $choice = Read-Host "Enter your choice"
+        switch ($choice.ToUpper()) {
+            "1" { Run-ValidationScripts }
+            "2" { Write-Host "[Placeholder] Agent Maintenance" }
+            "3" { Write-Host "[Placeholder] Probe Troubleshooting" }
+            "4" { Run-ZipAndEmailResults }
+            "Q" { exit }
         }
-    }
-
-    Write-Host "Patch data exported to: $out1, $out2, $out3" -ForegroundColor Green
+    } while ($choice.ToUpper() -ne "Q")
 }
 
-# Final script: Implement any logic for Agent Maintenance or other tasks as necessary
 Start-Tool
