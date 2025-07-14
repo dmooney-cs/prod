@@ -1,8 +1,4 @@
-
-<#
-Data Collection and Validation Tool - Master Script
-All Logic Inlined: Validation, Agent Maintenance, Troubleshooting, and Export
-#>
+# Data Collection and Validation Tool - Full Script (Final Adjustments)
 
 # Create export directory
 $ExportDir = "C:\Script-Export"
@@ -10,11 +6,17 @@ if (-not (Test-Path $ExportDir)) {
     New-Item -Path $ExportDir -ItemType Directory | Out-Null
 }
 
+# Function to pause for user input (handles environment issues)
 function Pause-Script {
     Write-Host "`nPress any key to continue..." -ForegroundColor DarkGray
-    [void][System.Console]::ReadKey($true)
+    try {
+        [void][System.Console]::ReadKey($true)  # Attempt to use the Console.ReadKey method
+    } catch {
+        Read-Host "Press Enter to continue..."  # Fallback for environments that cannot use ReadKey
+    }
 }
 
+# Main Menu Display
 function Show-MainMenu {
     Clear-Host
     Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
@@ -34,6 +36,7 @@ function Show-MainMenu {
     }
 }
 
+# Validation Scripts Menu
 function Show-ValidationMenu {
     Clear-Host
     Write-Host "======== Validation Scripts Menu ========" -ForegroundColor Cyan
@@ -48,127 +51,135 @@ function Show-ValidationMenu {
     Write-Host "9. Back to Main Menu"
     $choice = Read-Host "Select an option"
     switch ($choice) {
-        '1' { Run-OfficeValidation }
-        '2' { Run-DriverValidation }
-        '3' { Run-RoamingProfileApps }
-        '4' { Run-BrowserExtensionDetails }
-        '5' { Run-OSQueryBrowserExtensions }
-        '6' { Run-SSLCipherValidation }
-        '7' { Run-WindowsPatchValidation }
-        '8' { Run-ActiveDirectoryValidation }
+        '1' { Run-OfficeValidation; Show-ValidationMenu }
+        '2' { Run-DriverValidation; Show-ValidationMenu }
+        '3' { Run-RoamingProfileValidation; Show-ValidationMenu }
+        '4' { Run-BrowserExtensionDetails; Show-ValidationMenu }
+        '5' { Run-OSQueryBrowserExtensions; Show-ValidationMenu }
+        '6' { Run-SSLCipherValidation; Show-ValidationMenu }
+        '7' { Run-WindowsPatchDetails; Show-ValidationMenu }
+        '8' { Run-ActiveDirectoryValidation; Show-ValidationMenu }
         '9' { Show-MainMenu }
         default { Show-ValidationMenu }
     }
 }
 
-function Run-OfficeValidation {
-    Write-Host "Scanning for installed applications..." -ForegroundColor Cyan
-    $appFilter = Read-Host "Enter a keyword to filter applications (or press Enter to list all)"
+# Function to run the Zip and Email Results operation
+function Run-ZipAndEmailResults {
+    $ExportFolder = "C:\Script-Export"
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $zipFilePath = "$ExportFolder\ScriptExport_${hostname}_$timestamp.zip"
 
-    $results = @()
+    # Ensure export folder exists
+    if (-not (Test-Path $ExportFolder)) {
+        Write-Host "Folder '$ExportFolder' not found. Exiting..." -ForegroundColor Red
+        exit
+    }
 
-    $registryPaths = @(
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )
+    # Get all files recursively
+    $allFiles = Get-ChildItem -Path $ExportFolder -Recurse -File
+    if ($allFiles.Count -eq 0) {
+        Write-Host "No files found in '$ExportFolder'. Exiting..." -ForegroundColor Yellow
+        exit
+    }
 
-    foreach ($regPath in $registryPaths) {
-        Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue | ForEach-Object {
-            if ($_.DisplayName) {
-                if ($appFilter -eq "" -or $_.DisplayName -like "*$appFilter*") {
-                    $category = "Application"
-                    $registryPath = $_.PSPath.Replace("Microsoft.PowerShell.Core\Registry::", "")
-                    $installLocation = if ($_.InstallLocation) { $_.InstallLocation } else { "N/A" }
+    # Display contents
+    Write-Host ""
+    Write-Host "=== Contents of $ExportFolder ===" -ForegroundColor Cyan
+    $allFiles | ForEach-Object { Write-Host $_.FullName }
 
-                    $results += [PSCustomObject]@{
-                        Name             = $_.DisplayName
-                        Version          = $_.DisplayVersion
-                        Publisher        = $_.Publisher
-                        InstallLocation  = $installLocation
-                        InstallDate      = $_.InstallDate
-                        InstalledBy      = $_.InstallSource
-                        Source           = "Registry"
-                        Category         = $category
-                        RegistryPath     = $registryPath
-                        ProfileType      = "N/A"
-                    }
+    # Calculate total size before compression
+    $totalSizeMB = [math]::Round(($allFiles | Measure-Object Length -Sum).Sum / 1MB, 2)
+    Write-Host ""
+    Write-Host "Total size before compression: $totalSizeMB MB" -ForegroundColor Yellow
+
+    # Prompt to ZIP
+    $zipChoice = Read-Host "`nWould you like to zip the folder contents? (Y/N)"
+    if ($zipChoice -notin @('Y','y')) {
+        Write-Host "Zipping skipped. Exiting..." -ForegroundColor DarkGray
+        exit
+    }
+
+    # Remove old zip if exists
+    if (Test-Path $zipFilePath) { Remove-Item $zipFilePath -Force }
+
+    # Create ZIP
+    Compress-Archive -Path "$ExportFolder\*" -DestinationPath $zipFilePath
+
+    # Get ZIP size
+    $zipSizeMB = [math]::Round((Get-Item $zipFilePath).Length / 1MB, 2)
+
+    # Show summary
+    Write-Host ""
+    Write-Host "=== ZIP Summary ===" -ForegroundColor Green
+    Write-Host "ZIP File: $zipFilePath"
+    Write-Host "Size after compression: $zipSizeMB MB" -ForegroundColor Yellow
+
+    # Prompt to email
+    $emailChoice = Read-Host "`nWould you like to email the ZIP file? (Y/N)"
+    if ($emailChoice -in @('Y','y')) {
+        $recipient = Read-Host "Enter recipient email address"
+        $subject = "Script Export from $hostname"
+        $body = "Attached is the export ZIP file from $hostname.`nZIP Path: $zipFilePath"
+
+        Write-Host "`nChecking for Outlook..." -ForegroundColor Cyan
+        $Outlook = $null
+        $OutlookWasRunning = $false
+
+        # Attempt to connect to Outlook (running or start new)
+        try {
+            $Outlook = [Runtime.InteropServices.Marshal]::GetActiveObject("Outlook.Application")
+            $OutlookWasRunning = $true
+        } catch {
+            try {
+                $Outlook = New-Object -ComObject Outlook.Application
+                $OutlookWasRunning = $false
+            } catch {
+                $Outlook = $null
+            }
+        }
+
+        if ($Outlook) {
+            try {
+                # Ensure MAPI session is open
+                $namespace = $Outlook.GetNamespace("MAPI")
+                $namespace.Logon($null, $null, $false, $true)
+
+                # Create and populate mail item
+                $Mail = $Outlook.CreateItem(0)
+                $Mail.To = $recipient
+                $Mail.Subject = $subject
+                $Mail.Body = $body
+
+                if (Test-Path $zipFilePath) {
+                    $Mail.Attachments.Add($zipFilePath)
+                } else {
+                    Write-Host "❌ ZIP file not found at $zipFilePath" -ForegroundColor Red
                 }
+
+                $Mail.Display()
+                Write-Host "`n✅ Outlook draft email opened with ZIP attached." -ForegroundColor Green
+            } catch {
+                Write-Host "❌ Outlook COM error: $($_.Exception.Message)" -ForegroundColor Red
             }
+        } else {
+            Write-Host "`n⚠️ Outlook not available. Falling back to default mail client..." -ForegroundColor Yellow
+            $mailto = "mailto:$recipient`?subject=$([uri]::EscapeDataString($subject))&body=$([uri]::EscapeDataString($body))"
+            Start-Process $mailto
+            Write-Host ""
+            Write-Host "Please manually attach this file:" -ForegroundColor Cyan
+            Write-Host "$zipFilePath" -ForegroundColor White
         }
-    }
-
-    Get-AppxPackage | ForEach-Object {
-        if ($appFilter -eq "" -or $_.Name -like "*$appFilter*" -or $_.PackageFullName -like "*$appFilter*") {
-            $category = "Microsoft Store App"
-            $installLocation = if ($_.InstallLocation) { $_.InstallLocation } else { "N/A" }
-
-            $results += [PSCustomObject]@{
-                Name             = $_.Name
-                Version          = $_.Version
-                Publisher        = $_.Publisher
-                InstallLocation  = $installLocation
-                InstallDate      = "N/A"
-                InstalledBy      = "N/A"
-                Source           = "Microsoft Store"
-                Category         = $category
-                RegistryPath     = "N/A"
-                ProfileType      = "N/A"
-            }
-        }
-    }
-
-    $teamsPaths = Get-ChildItem "C:\Users\*\AppData\Local\Microsoft\Teams\Teams.exe" -Recurse -ErrorAction SilentlyContinue
-    foreach ($teamsPath in $teamsPaths) {
-        $version = (Get-Item $teamsPath.FullName).VersionInfo.FileVersion
-        $installLocation = $teamsPath.DirectoryName
-
-        $results += [PSCustomObject]@{
-            Name             = 'Microsoft Teams'
-            Version          = $version
-            Publisher        = 'Microsoft'
-            InstallLocation  = $installLocation
-            InstallDate      = "N/A"
-            InstalledBy      = "N/A"
-            Source           = "Teams (Local)"
-            Category         = "Microsoft Store App"
-            RegistryPath     = "N/A"
-            ProfileType      = "N/A"
-        }
-    }
-
-    if ($results.Count -eq 0) {
-        Write-Host "No matching applications found." -ForegroundColor Yellow
     } else {
-        Write-Host "`nDetected Applications:" -ForegroundColor Green
-        $results | Sort-Object Name | Format-Table Name, Version, Publisher, InstallLocation, InstallDate, InstalledBy, Category, Source -AutoSize
-
-        $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-        $hostname = $env:COMPUTERNAME
-        $exportPath = "C:\Script-Export"
-
-        if (-not (Test-Path -Path $exportPath)) {
-            New-Item -Path $exportPath -ItemType Directory
-            Write-Host "Created folder: $exportPath" -ForegroundColor Cyan
-        }
-
-        $csvPath = "$exportPath\All Applications Detected - $dateTime - $hostname.csv"
-        $results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
-        Write-Host "`nResults exported to: $csvPath" -ForegroundColor Green
+        Write-Host "Email skipped." -ForegroundColor DarkGray
     }
-    Pause-Script
+
+    Write-Host ""
+    Pause-Script  # Pauses before returning to menu
 }
 
-# Import Agent Maintenance Submenu
-. { <INSERT AGENT MAINTENANCE MENU V1 SCRIPT HERE> }
-
-# Import Probe Troubleshooting Submenu
-. { <INSERT PROBE TROUBLESHOOTING MENU V1 SCRIPT HERE> }
-
-# Import Zip + Email Logic
-. { <INSERT ZIP AND EMAIL RESULTS V1 SCRIPT HERE> }
-
-# Purge Export and Temp Data
+# Cleanup & Exit Logic
 function Cleanup-And-Exit {
     Write-Host "`nCleaning up all Script Data..." -ForegroundColor Yellow
     $pathsToDelete = @("C:\Script-Export", "C:\Script-Temp")
@@ -178,9 +189,9 @@ function Cleanup-And-Exit {
         }
     }
     Write-Host "Script data purged successfully. Exiting..." -ForegroundColor Green
-    Pause-Script
+    Start-Sleep -Seconds 5
     exit
 }
 
-# Launch Menu
+# Launch the menu
 Show-MainMenu
