@@ -117,7 +117,7 @@ function Run-BrowserExtensionAudit {
 
     if (-Not (Test-Path $exportPath)) {
         Write-Host "Creating folder: $exportPath"
-        New-Item -Path $exportPath -ItemType Directory
+        New-Item -Path $exportPath -ItemType Directory | Out-Null
     }
 
     $csvPath = Join-Path $exportPath "BrowserExtensions_$timestamp`_$hostname.csv"
@@ -138,16 +138,16 @@ function Run-AllValidation {
     Run-ADCollection
 }
 
-function Run-OfficeValidation { # Stub - Replace with real logic }
-function Run-DriverValidation { # Stub - Replace with real logic }
-function Run-RoamingProfileAppScan { # Stub - Replace with real logic }
-function Run-OSQueryBrowserExt { # Stub - Replace with real logic }
-function Run-SSLCipherScan { # Stub - Replace with real logic }
-function Run-WindowsPatchDetails { # Stub - Replace with real logic }
-function Run-ADCollection { # Stub - Replace with real logic }
-function Run-ZipAndEmail { # Stub - Replace with real logic }
-function Run-AgentMaintenance { # Stub - Replace with real logic }
-function Run-ProbeTroubleshooting { # Stub - Replace with real logic }
+function Run-OfficeValidation { Write-Host "Office validation placeholder" }
+function Run-DriverValidation { Write-Host "Driver validation placeholder" }
+function Run-RoamingProfileAppScan { Write-Host "Roaming profile scan placeholder" }
+function Run-OSQueryBrowserExt { Write-Host "OSQuery browser extension placeholder" }
+function Run-SSLCipherScan { Write-Host "SSL cipher validation placeholder" }
+function Run-WindowsPatchDetails { Write-Host "Windows patch validation placeholder" }
+function Run-ADCollection { Write-Host "Active Directory collection placeholder" }
+function Run-ZipAndEmail { Write-Host "Zip and email placeholder" }
+function Run-AgentMaintenance { Write-Host "Agent maintenance placeholder" }
+function Run-ProbeTroubleshooting { Write-Host "Probe troubleshooting placeholder" }
 
 # Main Loop
 do {
