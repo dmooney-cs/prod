@@ -131,11 +131,6 @@ function Run-BrowserExtensionDetails {
     Read-Host -Prompt "Press ENTER to continue"
 }
 
-# Placeholder for all other existing script functions like:
-# Run-OfficeValidation, Run-DriverValidation, Run-RoamingProfileValidation,
-# Run-OSQueryBrowserExtensions, Run-SSLCipherValidation, Run-WindowsPatchDetails, etc.
-# These remain unchanged from the previous master version.
-
 function Run-SelectedOption {
     param($choice)
     switch ($choice.ToUpper()) {
