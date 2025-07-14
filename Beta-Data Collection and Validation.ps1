@@ -78,7 +78,7 @@ function Run-OfficeValidation {
             if ($_.DisplayName) {
                 if ($appFilter -eq "" -or $_.DisplayName -like "*$appFilter*") {
                     $category = "Application"
-                    $registryPath = $_.PSPath -replace "^Microsoft.PowerShell.Core\Registry::", ""
+                    $registryPath = $_.PSPath.Replace("Microsoft.PowerShell.Core\Registry::", "")
                     $installLocation = if ($_.InstallLocation) { $_.InstallLocation } else { "N/A" }
 
                     $results += [PSCustomObject]@{
