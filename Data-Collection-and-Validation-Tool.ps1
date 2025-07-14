@@ -9,6 +9,7 @@ function Run-WindowsPatchDetails {
         New-Item -ItemType Directory -Path $hotfixFolder | Out-Null
     }
     $getHotfixFile = "$hotfixFolder\GetHotFix-$timestamp-$hostname.csv"
+
     try {
         $getHotfixes = Get-HotFix | Where-Object { $_.HotFixID } | ForEach-Object {
             [PSCustomObject]@{
@@ -19,6 +20,7 @@ function Run-WindowsPatchDetails {
                 Source = "Get-HotFix"
             }
         }
+
         if ($getHotfixes.Count -gt 0) {
             $getHotfixes | Export-Csv -Path $getHotfixFile -NoTypeInformation -Encoding UTF8
             Write-Host "Get-HotFix results saved to:" -ForegroundColor Green
@@ -36,6 +38,7 @@ function Run-WindowsPatchDetails {
         New-Item -ItemType Directory -Path $wmicOutputFolder | Out-Null
     }
     $wmicOutputFile = "$wmicOutputFolder\WMIC-Patches-$timestamp-$hostname.csv"
+
     $wmicHotfixes = @()
     try {
         $wmicRaw = (wmic qfe get HotfixID | findstr /v HotFixID) -split "`r`n"
@@ -45,6 +48,7 @@ function Run-WindowsPatchDetails {
                 Source   = "WMIC"
             }
         }
+
         if ($wmicHotfixes.Count -gt 0) {
             $wmicHotfixes | Export-Csv -Path $wmicOutputFile -NoTypeInformation -Encoding UTF8
             Write-Host "WMIC patch list saved to:" -ForegroundColor Green
@@ -71,6 +75,7 @@ function Run-WindowsPatchDetails {
             "select  CONCAT('KB',replace(split(split(title, 'KB',1),' ',0),')','')) as hotfix_id,description, datetime(date,'unixepoch') as install_date,'' as installed_by,'' as installed_on from windows_update_history where title like '%KB%' group by split(split(title, 'KB',1),' ',0);",
             "select hotfix_id,description,installed_by,install_date,installed_on from patches group by hotfix_id;"
         )
+
         $results = @()
         foreach ($query in $queries) {
             $output = & "$osqueryPath" --json "$query" 2>$null
@@ -83,6 +88,7 @@ function Run-WindowsPatchDetails {
                 }
             }
         }
+
         if ($results.Count -gt 0) {
             $results | Export-Csv -Path $osqueryOutputFile -NoTypeInformation -Encoding UTF8
             Write-Host "OSQuery patch list saved to:" -ForegroundColor Green
@@ -93,8 +99,11 @@ function Run-WindowsPatchDetails {
     }
 
     Write-Host "`nPatch collection complete." -ForegroundColor Magenta
-    Read-Host -Prompt "Press Enter to return"
 }
+
+
+
+
 
 
 function Run-ValidationScripts {
