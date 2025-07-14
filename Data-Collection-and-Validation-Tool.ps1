@@ -1,4 +1,61 @@
 
+function Run-ZipAndEmail {
+    $exportFolder = "C:\Script-Export"
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $hostname = $env:COMPUTERNAME
+    $zipPath = "$exportFolder\SystemExport_$timestamp`_$hostname.zip"
+
+    if (-not (Test-Path $exportFolder)) {
+        Write-Host "Export folder not found: $exportFolder" -ForegroundColor Yellow
+        return
+    }
+
+    $files = Get-ChildItem -Path $exportFolder -Recurse -File
+    if ($files.Count -eq 0) {
+        Write-Host "No files found in $exportFolder to zip." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "`nThe following files will be included in the ZIP archive:" -ForegroundColor Cyan
+    $files | ForEach-Object { Write-Host " - $($_.FullName)" -ForegroundColor Gray }
+
+    $response = Read-Host "`nWould you like to continue and zip these files? (Y/N)"
+    if ($response -notin @("Y", "y")) {
+        Write-Host "Operation cancelled. Returning to main menu." -ForegroundColor Yellow
+        return
+    }
+
+    if (Test-Path $zipPath) { Remove-Item -Path $zipPath -Force -ErrorAction SilentlyContinue }
+    Compress-Archive -Path "$exportFolder\*" -DestinationPath $zipPath -Force
+
+    Write-Host "`n✅ Files zipped successfully:" -ForegroundColor Green
+    Write-Host "$zipPath" -ForegroundColor Cyan
+
+    $emailChoice = Read-Host "`nWould you like to email the ZIP file or return to menu? (Email/Menu)"
+    if ($emailChoice -match "^Email$") {
+        $recipient = Read-Host "Enter email address to send ZIP file to"
+        try {
+            $Outlook = New-Object -ComObject Outlook.Application
+            $Mail = $Outlook.CreateItem(0)
+            $Mail.Subject = "System Validation Export - $hostname"
+            $Mail.To = $recipient
+            $Mail.Body = "Attached is the exported validation data from $hostname."
+            $Mail.Attachments.Add($zipPath)
+            $Mail.Display()
+            Write-Host "Email draft opened in Outlook." -ForegroundColor Green
+        } catch {
+            Write-Host "Outlook not available. Using default mail client instead." -ForegroundColor Yellow
+            Start-Process "explorer.exe" -ArgumentList "/select,$zipPath"
+            $mailto = "mailto:$recipient?subject=System Validation Export - $hostname"
+            Start-Process $mailto
+        }
+    } else {
+        Write-Host "Returning to main menu..." -ForegroundColor Cyan
+    }
+}
+
+
+
 function Run-WindowsPatchDetails {
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
