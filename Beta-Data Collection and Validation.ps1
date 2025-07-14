@@ -24,7 +24,8 @@ function Show-ValidationMenu {
     Write-Host "5. OSQuery Browser Extensions"
     Write-Host "6. SSL Cipher Validation"
     Write-Host "7. Windows Patch Details"
-    Write-Host "8. Back to Main Menu"
+    Write-Host "8. Active Directory Collection"
+    Write-Host "9. Back to Main Menu"
     Write-Host ""
 }
 
@@ -126,19 +127,29 @@ function Run-BrowserExtensionAudit {
     Pause
 }
 
-# Placeholder functions for other features
-function Run-OfficeValidation { Write-Host "Office Validation script would run here..." -ForegroundColor Cyan; Pause }
-function Run-DriverValidation { Write-Host "Driver Validation script would run here..." -ForegroundColor Cyan; Pause }
-function Run-RoamingProfileAppScan { Write-Host "Roaming Profile App scan would run here..." -ForegroundColor Cyan; Pause }
-function Run-OSQueryBrowserExt { Write-Host "OSQuery Browser Extensions script would run here..." -ForegroundColor Cyan; Pause }
-function Run-SSLCipherScan { Write-Host "SSL Cipher scan script would run here..." -ForegroundColor Cyan; Pause }
-function Run-WindowsPatchDetails { Write-Host "Windows Patch Validation script would run here..." -ForegroundColor Cyan; Pause }
+function Run-AllValidation {
+    Run-OfficeValidation
+    Run-DriverValidation
+    Run-RoamingProfileAppScan
+    Run-BrowserExtensionAudit
+    Run-OSQueryBrowserExt
+    Run-SSLCipherScan
+    Run-WindowsPatchDetails
+    Run-ADCollection
+}
 
-function Run-ZipAndEmail { Write-Host "Zipping and email script would run here..." -ForegroundColor Cyan; Pause }
-function Run-AgentMaintenance { Write-Host "Agent Maintenance menu would appear here..." -ForegroundColor Cyan; Pause }
-function Run-ProbeTroubleshooting { Write-Host "Probe Troubleshooting menu would appear here..." -ForegroundColor Cyan; Pause }
+function Run-OfficeValidation { # Stub - Replace with real logic }
+function Run-DriverValidation { # Stub - Replace with real logic }
+function Run-RoamingProfileAppScan { # Stub - Replace with real logic }
+function Run-OSQueryBrowserExt { # Stub - Replace with real logic }
+function Run-SSLCipherScan { # Stub - Replace with real logic }
+function Run-WindowsPatchDetails { # Stub - Replace with real logic }
+function Run-ADCollection { # Stub - Replace with real logic }
+function Run-ZipAndEmail { # Stub - Replace with real logic }
+function Run-AgentMaintenance { # Stub - Replace with real logic }
+function Run-ProbeTroubleshooting { # Stub - Replace with real logic }
 
-# Main loop
+# Main Loop
 do {
     Show-MainMenu
     $mainChoice = Read-Host "Select an option"
@@ -157,7 +168,8 @@ do {
                     '5' { Run-OSQueryBrowserExt }
                     '6' { Run-SSLCipherScan }
                     '7' { Run-WindowsPatchDetails }
-                    '8' { break }
+                    '8' { Run-ADCollection }
+                    '9' { break }
                     default { Write-Host "Invalid option. Try again." -ForegroundColor Red; Pause }
                 }
             } while ($true)
