@@ -332,3 +332,74 @@ Log-Action "SSL Cipher Scan completed"
 Write-Host ""
 Read-Host -Prompt "Press ENTER to exit..."
 }
+
+function Run-OSQueryBrowserExtensions {
+    # Timestamp and hostname
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $outputDir = "C:\Script-Export"
+    $outputCsv = "$outputDir\OSquery-browserext-$timestamp-$hostname.csv"
+    $outputJson = "$outputDir\RawBrowserExt-$timestamp-$hostname.json"
+
+    if (-not (Test-Path $outputDir)) {
+        New-Item -Path $outputDir -ItemType Directory | Out-Null
+    }
+
+    $osqueryPaths = @(
+        "C:\Program Files (x86)\CyberCNSAgent\osqueryi.exe",
+        "C:\Windows\CyberCNSAgent\osqueryi.exe"
+    )
+
+    $osquery = $osqueryPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+    if (-not $osquery) {
+        Write-Host "❌ osqueryi.exe not found in expected locations." -ForegroundColor Red
+        Read-Host -Prompt "Press any key to exit"
+        return
+    }
+
+    Push-Location (Split-Path $osquery)
+    $sqlQuery = @"
+SELECT name, browser_type, version, path, sha1(name || path) AS unique_id 
+FROM chrome_extensions 
+WHERE chrome_extensions.uid IN (SELECT uid FROM users) 
+GROUP BY unique_id;
+"@
+    $json = & .\osqueryi.exe --json "$sqlQuery" 2>$null
+    Pop-Location
+
+    Set-Content -Path $outputJson -Value $json
+
+    if (-not $json) {
+        Write-Host "⚠️ No browser extension data returned by osquery." -ForegroundColor Yellow
+        Write-Host "`nRaw JSON saved for review:" -ForegroundColor DarkGray
+        Write-Host "$outputJson" -ForegroundColor Cyan
+        Read-Host -Prompt "Press any key to continue"
+        return
+    }
+
+    try {
+        $parsed = $json | ConvertFrom-Json
+
+        if ($parsed.Count -eq 0) {
+            Write-Host "⚠️ No browser extensions found." -ForegroundColor Yellow
+        } else {
+            Write-Host "`n✅ Extensions found: $($parsed.Count)" -ForegroundColor Green
+            Write-Host "--------------------------------------------------" -ForegroundColor DarkGray
+            foreach ($ext in $parsed) {
+                Write-Host "• $($ext.name) ($($ext.browser_type)) — $($ext.version)" -ForegroundColor White
+            }
+            Write-Host "--------------------------------------------------" -ForegroundColor DarkGray
+            $parsed | Export-Csv -Path $outputCsv -NoTypeInformation -Encoding UTF8
+        }
+    } catch {
+        Write-Host "❌ Failed to parse or export data." -ForegroundColor Red
+        Read-Host -Prompt "Press any key to continue"
+        return
+    }
+
+    Write-Host "`n📁 Output Files:" -ForegroundColor Yellow
+    Write-Host "• CSV:  $outputCsv" -ForegroundColor Cyan
+    Write-Host "• JSON: $outputJson" -ForegroundColor Cyan
+    Read-Host -Prompt "`nPress any key to exit"
+}
