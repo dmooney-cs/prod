@@ -1,45 +1,46 @@
-# Data-Collection-and-Validation-Tool.ps1
-
-Clear-Host
-Write-Host "=== Data Collection and Validation Tool ===" -ForegroundColor Cyan
-
 function Show-MainMenu {
     Clear-Host
-    Write-Host "=== Data Collection and Validation Tool ===" -ForegroundColor Cyan
+    Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
     Write-Host "1. Validation Scripts"
     Write-Host "2. Agent Maintenance"
     Write-Host "3. Probe Troubleshooting"
     Write-Host "4. Zip and Email Results"
     Write-Host "Q. Close and Purge Script Data"
-    Write-Host ""
 }
 
-function Show-ValidationMenu {
-    Clear-Host
-    Write-Host "=== Validation Scripts ===" -ForegroundColor Cyan
-    Write-Host "1. Microsoft Office Validation"
-    Write-Host "2. Driver Validation"
-    Write-Host "3. Roaming Profile Applications"
-    Write-Host "4. Browser Extension Details"
-    Write-Host "5. OSQuery Browser Extensions"
-    Write-Host "6. SSL Cipher Validation"
-    Write-Host "7. Windows Patch Details"
-    Write-Host "8. Active Directory Collection"
-    Write-Host "9. Back to Main Menu"
-    Write-Host ""
+function Run-ValidationScripts {
+    do {
+        Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
+        Write-Host "1. Microsoft Office Validation"
+        Write-Host "2. Driver Validation"
+        Write-Host "3. Roaming Profile Applications"
+        Write-Host "4. Browser Extension Details"
+        Write-Host "5. OSQuery Browser Extensions"
+        Write-Host "6. SSL Cipher Validation"
+        Write-Host "7. Windows Patch Details"
+        Write-Host "8. Back to Main Menu"
+        $valChoice = Read-Host "Select an option"
+        switch ($valChoice) {
+            "1" { Run-OfficeValidation }
+            "2" { Run-DriverValidation }
+            "3" { Run-RoamingProfileValidation }
+            "4" { Run-BrowserExtensionDetails }
+            "5" { Run-OSQueryBrowserExtensions }
+            "6" { Run-SSLCipherValidation }
+            "7" { Run-WindowsPatchDetails }
+            "8" { return }
+            default { Write-Host "Invalid option." -ForegroundColor Red }
+        }
+    } while ($true)
 }
 
-function Run-BrowserExtensionAudit {
+function Run-BrowserExtensionDetails {
     function Get-ChromeEdgeExtensions {
         param (
             [string]$BrowserName,
             [string]$BasePath
         )
-
-        if (-Not (Test-Path $BasePath)) {
-            return
-        }
-
+        if (-Not (Test-Path $BasePath)) { return }
         Get-ChildItem -Path $BasePath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
             $extensionId = $_.Name
             Get-ChildItem -Path $_.FullName -Directory | Sort-Object Name -Descending | Select-Object -First 1 | ForEach-Object {
@@ -63,10 +64,7 @@ function Run-BrowserExtensionAudit {
     }
 
     function Get-FirefoxExtensions {
-        param (
-            [string]$UserProfile
-        )
-
+        param ([string]$UserProfile)
         $firefoxProfilesIni = Join-Path $UserProfile 'AppData\Roaming\Mozilla\Firefox\profiles.ini'
         if (-Not (Test-Path $firefoxProfilesIni)) { return }
 
@@ -116,70 +114,33 @@ function Run-BrowserExtensionAudit {
     $exportPath = "C:\Script-Export"
 
     if (-Not (Test-Path $exportPath)) {
-        Write-Host "Creating folder: $exportPath"
         New-Item -Path $exportPath -ItemType Directory | Out-Null
     }
 
-    $csvPath = Join-Path $exportPath "BrowserExtensions_$timestamp`_$hostname.csv"
+    $csvPath = Join-Path $exportPath "BrowserExtensions_${timestamp}_${hostname}.csv"
     $SortedResults | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
 
     Write-Host "`nReport saved to: $csvPath" -ForegroundColor Green
-    Pause
+    Read-Host -Prompt "`nPress ENTER to return to menu"
 }
 
-function Run-AllValidation {
-    Run-OfficeValidation
-    Run-DriverValidation
-    Run-RoamingProfileAppScan
-    Run-BrowserExtensionAudit
-    Run-OSQueryBrowserExt
-    Run-SSLCipherScan
-    Run-WindowsPatchDetails
-    Run-ADCollection
-}
-
-function Run-OfficeValidation { Write-Host "Office validation placeholder" }
-function Run-DriverValidation { Write-Host "Driver validation placeholder" }
-function Run-RoamingProfileAppScan { Write-Host "Roaming profile scan placeholder" }
-function Run-OSQueryBrowserExt { Write-Host "OSQuery browser extension placeholder" }
-function Run-SSLCipherScan { Write-Host "SSL cipher validation placeholder" }
-function Run-WindowsPatchDetails { Write-Host "Windows patch validation placeholder" }
-function Run-ADCollection { Write-Host "Active Directory collection placeholder" }
-function Run-ZipAndEmail { Write-Host "Zip and email placeholder" }
-function Run-AgentMaintenance { Write-Host "Agent maintenance placeholder" }
-function Run-ProbeTroubleshooting { Write-Host "Probe troubleshooting placeholder" }
-
-# Main Loop
-do {
-    Show-MainMenu
-    $mainChoice = Read-Host "Select an option"
-
-    switch ($mainChoice) {
-        '1' {
-            do {
-                Show-ValidationMenu
-                $validationChoice = Read-Host "Choose a validation option"
-
-                switch ($validationChoice) {
-                    '1' { Run-OfficeValidation }
-                    '2' { Run-DriverValidation }
-                    '3' { Run-RoamingProfileAppScan }
-                    '4' { Run-BrowserExtensionAudit }
-                    '5' { Run-OSQueryBrowserExt }
-                    '6' { Run-SSLCipherScan }
-                    '7' { Run-WindowsPatchDetails }
-                    '8' { Run-ADCollection }
-                    '9' { break }
-                    default { Write-Host "Invalid option. Try again." -ForegroundColor Red; Pause }
-                }
-            } while ($true)
-        }
-        '2' { Run-AgentMaintenance }
-        '3' { Run-ProbeTroubleshooting }
-        '4' { Run-ZipAndEmail }
-        'Q' { break }
-        default { Write-Host "Invalid option. Try again." -ForegroundColor Red; Pause }
+function Run-SelectedOption {
+    param($choice)
+    switch ($choice.ToUpper()) {
+        "1" { Run-ValidationScripts }
+        "2" { Write-Host "[Placeholder] Agent Maintenance" }
+        "3" { Write-Host "[Placeholder] Probe Troubleshooting" }
+        "4" { Write-Host "[Placeholder] Zip and Email Results" }
+        "Q" { exit }
     }
-} while ($true)
+}
 
-Write-Host "Cleaning up and exiting..." -ForegroundColor Yellow
+function Start-Tool {
+    do {
+        Show-MainMenu
+        $choice = Read-Host "Enter your choice"
+        Run-SelectedOption -choice $choice
+    } while ($choice.ToUpper() -ne "Q")
+}
+
+Start-Tool
