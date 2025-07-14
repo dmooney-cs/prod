@@ -42,14 +42,16 @@ function Run-ValidationScripts {
         Write-Host "2. Driver Validation"
         Write-Host "3. Browser Extension details"
         Write-Host "4. SSL Cipher Validation"
-        Write-Host "5. Back to Main Menu"
+        Write-Host "5. Windows Patch Details"
+        Write-Host "6. Back to Main Menu"
         $choice = Read-Host "Select an option"
         switch ($choice) {
             "1" { Run-OfficeValidation }
             "2" { Run-DriverValidation }
             "3" { Run-BrowserExtensionDetails }
             "4" { Run-SSLCipherValidation }
-            "5" { return }
+            "5" { Run-WindowsPatchDetails }
+            "6" { return }
             default { Write-Host "Invalid choice." -ForegroundColor Red }
         }
     } while ($true)
@@ -218,3 +220,102 @@ function Start-Tool {
 }
 
 Start-Tool
+
+
+
+function Run-WindowsPatchDetails {
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+
+    Write-Host "`n[1/3] Collecting patch info via Get-HotFix..." -ForegroundColor Cyan
+    $hotfixFolder = "C:\Script-Export\HotFix-Report"
+    if (-not (Test-Path $hotfixFolder)) {
+        New-Item -ItemType Directory -Path $hotfixFolder | Out-Null
+    }
+    $getHotfixFile = "$hotfixFolder\GetHotFix-$timestamp-$hostname.csv"
+    try {
+        $getHotfixes = Get-HotFix | Where-Object { $_.HotFixID } | ForEach-Object {
+            [PSCustomObject]@{
+                HotfixID = $_.HotFixID
+                Description = $_.Description
+                InstalledOn = $_.InstalledOn
+                InstalledBy = $_.InstalledBy
+                Source = "Get-HotFix"
+            }
+        }
+        if ($getHotfixes.Count -gt 0) {
+            $getHotfixes | Export-Csv -Path $getHotfixFile -NoTypeInformation -Encoding UTF8
+            Write-Host "Get-HotFix results saved to:" -ForegroundColor Green
+            Write-Host "$getHotfixFile" -ForegroundColor Cyan
+        } else {
+            Write-Host "No results from Get-HotFix." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Warning "Failed to retrieve results via Get-HotFix: $_"
+    }
+
+    Write-Host "`n[2/3] Collecting patch info via WMIC..." -ForegroundColor Cyan
+    $wmicOutputFolder = "C:\Script-Export\WMIC-Patch-Report"
+    if (-not (Test-Path $wmicOutputFolder)) {
+        New-Item -ItemType Directory -Path $wmicOutputFolder | Out-Null
+    }
+    $wmicOutputFile = "$wmicOutputFolder\WMIC-Patches-$timestamp-$hostname.csv"
+    $wmicHotfixes = @()
+    try {
+        $wmicRaw = (wmic qfe get HotfixID | findstr /v HotFixID) -split "`r`n"
+        $wmicHotfixes = $wmicRaw | Where-Object { $_ -and $_.Trim() -ne "" } | ForEach-Object {
+            [PSCustomObject]@{
+                HotfixID = $_.Trim()
+                Source   = "WMIC"
+            }
+        }
+        if ($wmicHotfixes.Count -gt 0) {
+            $wmicHotfixes | Export-Csv -Path $wmicOutputFile -NoTypeInformation -Encoding UTF8
+            Write-Host "WMIC patch list saved to:" -ForegroundColor Green
+            Write-Host "$wmicOutputFile" -ForegroundColor Cyan
+        } else {
+            Write-Host "No hotfixes found using WMIC." -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Warning "WMIC not available or failed: $_"
+    }
+
+    Write-Host "`n[3/3] Collecting patch info via osquery..." -ForegroundColor Cyan
+    $osqueryPath = "C:\Program Files (x86)\CyberCNSAgent\osqueryi.exe"
+    $osqueryOutputFolder = "C:\Script-Export\OSQuery-Patch-Report"
+    if (-not (Test-Path $osqueryOutputFolder)) {
+        New-Item -ItemType Directory -Path $osqueryOutputFolder | Out-Null
+    }
+    $osqueryOutputFile = "$osqueryOutputFolder\OSQuery-Patches-$timestamp-$hostname.csv"
+
+    if (-not (Test-Path $osqueryPath)) {
+        Write-Host "ERROR: osqueryi.exe not found at: $osqueryPath" -ForegroundColor Red
+    } else {
+        $queries = @(
+            "select  CONCAT('KB',replace(split(split(title, 'KB',1),' ',0),')','')) as hotfix_id,description, datetime(date,'unixepoch') as install_date,'' as installed_by,'' as installed_on from windows_update_history where title like '%KB%' group by split(split(title, 'KB',1),' ',0);",
+            "select hotfix_id,description,installed_by,install_date,installed_on from patches group by hotfix_id;"
+        )
+        $results = @()
+        foreach ($query in $queries) {
+            $output = & "$osqueryPath" --json "$query" 2>$null
+            if ($output) {
+                try {
+                    $parsed = $output | ConvertFrom-Json
+                    $results += $parsed
+                } catch {
+                    Write-Warning "Failed to parse osquery JSON output: $_"
+                }
+            }
+        }
+        if ($results.Count -gt 0) {
+            $results | Export-Csv -Path $osqueryOutputFile -NoTypeInformation -Encoding UTF8
+            Write-Host "OSQuery patch list saved to:" -ForegroundColor Green
+            Write-Host "$osqueryOutputFile" -ForegroundColor Cyan
+        } else {
+            Write-Host "No osquery patch data found or parsed." -ForegroundColor Yellow
+        }
+    }
+
+    Write-Host "`nPatch collection complete." -ForegroundColor Magenta
+    Read-Host -Prompt "Press Enter to return"
+}
