@@ -3,49 +3,50 @@ function Run-ZipAndEmail {
     $exportFolder = "C:\Script-Export"
     $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $hostname = $env:COMPUTERNAME
-    $zipPath = "$exportFolder\SystemExport_$timestamp`_$hostname.zip"
+    $zipFile = "$exportFolder\SystemExport_$timestamp`_$hostname.zip"
 
     if (-not (Test-Path $exportFolder)) {
-        Write-Host "Export folder not found: $exportFolder" -ForegroundColor Yellow
+        Write-Host "Export folder does not exist at $exportFolder" -ForegroundColor Red
         return
     }
 
     $files = Get-ChildItem -Path $exportFolder -Recurse -File
     if ($files.Count -eq 0) {
-        Write-Host "No files found in $exportFolder to zip." -ForegroundColor Yellow
+        Write-Host "No files found to zip in $exportFolder" -ForegroundColor Yellow
         return
     }
 
-    Write-Host "`nThe following files will be included in the ZIP archive:" -ForegroundColor Cyan
-    $files | ForEach-Object { Write-Host " - $($_.FullName)" -ForegroundColor Gray }
+    Write-Host "`nThe following files will be zipped:" -ForegroundColor Cyan
+    $files | ForEach-Object { Write-Host "• $($_.FullName)" -ForegroundColor Gray }
 
-    $response = Read-Host "`nWould you like to continue and zip these files? (Y/N)"
-    if ($response -notin @("Y", "y")) {
-        Write-Host "Operation cancelled. Returning to main menu." -ForegroundColor Yellow
+    $confirmZip = Read-Host "`nWould you like to create a ZIP archive of these files? (Y/N)"
+    if ($confirmZip -notin @("Y", "y")) {
+        Write-Host "Operation cancelled." -ForegroundColor Yellow
         return
     }
 
-    if (Test-Path $zipPath) { Remove-Item -Path $zipPath -Force -ErrorAction SilentlyContinue }
-    Compress-Archive -Path "$exportFolder\*" -DestinationPath $zipPath -Force
+    if (Test-Path $zipFile) { Remove-Item -Path $zipFile -Force -ErrorAction SilentlyContinue }
+    Compress-Archive -Path "$exportFolder\*" -DestinationPath $zipFile -Force
 
-    Write-Host "`n✅ Files zipped successfully:" -ForegroundColor Green
-    Write-Host "$zipPath" -ForegroundColor Cyan
+    Write-Host "`n✅ ZIP archive created:" -ForegroundColor Green
+    Write-Host $zipFile -ForegroundColor Cyan
 
-    $emailChoice = Read-Host "`nWould you like to email the ZIP file or return to menu? (Email/Menu)"
-    if ($emailChoice -match "^Email$") {
-        $recipient = Read-Host "Enter email address to send ZIP file to"
+    $nextStep = Read-Host "`nWould you like to send this ZIP via email or return to the main menu? (Email/Menu)"
+    if ($nextStep -match "Email") {
+        $recipient = Read-Host "Enter the email address to send the ZIP file to"
+
         try {
             $Outlook = New-Object -ComObject Outlook.Application
             $Mail = $Outlook.CreateItem(0)
             $Mail.Subject = "System Validation Export - $hostname"
             $Mail.To = $recipient
             $Mail.Body = "Attached is the exported validation data from $hostname."
-            $Mail.Attachments.Add($zipPath)
+            $Mail.Attachments.Add($zipFile)
             $Mail.Display()
             Write-Host "Email draft opened in Outlook." -ForegroundColor Green
         } catch {
-            Write-Host "Outlook not available. Using default mail client instead." -ForegroundColor Yellow
-            Start-Process "explorer.exe" -ArgumentList "/select,$zipPath"
+            Write-Host "Outlook not available. Attempting to use default email client." -ForegroundColor Yellow
+            Start-Process "explorer.exe" -ArgumentList "/select,$zipFile"
             $mailto = "mailto:$recipient?subject=System Validation Export - $hostname"
             Start-Process $mailto
         }
@@ -53,6 +54,10 @@ function Run-ZipAndEmail {
         Write-Host "Returning to main menu..." -ForegroundColor Cyan
     }
 }
+
+
+
+
 
 
 
