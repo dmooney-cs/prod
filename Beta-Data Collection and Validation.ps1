@@ -1,5 +1,3 @@
-# =================== Data Collection and Validation Tool ===================
-
 function Show-MainMenu {
     Clear-Host
     Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
@@ -36,16 +34,15 @@ function Run-ValidationScripts {
     } while ($true)
 }
 
-# --------------------------------------------------------------------------
-# Browser Extension Details - Custom Logic
-# --------------------------------------------------------------------------
 function Run-BrowserExtensionDetails {
     function Get-ChromeEdgeExtensions {
         param (
             [string]$BrowserName,
             [string]$BasePath
         )
+
         if (-Not (Test-Path $BasePath)) { return }
+
         Get-ChildItem -Path $BasePath -Directory -ErrorAction SilentlyContinue | ForEach-Object {
             $extensionId = $_.Name
             Get-ChildItem -Path $_.FullName -Directory | Sort-Object Name -Descending | Select-Object -First 1 | ForEach-Object {
@@ -62,9 +59,7 @@ function Run-BrowserExtensionDetails {
                             Path            = $_.FullName
                             InstallLocation = $BasePath
                         }
-                    } catch {
-                        # ignore malformed manifests
-                    }
+                    } catch { }
                 }
             }
         }
@@ -72,6 +67,7 @@ function Run-BrowserExtensionDetails {
 
     function Get-FirefoxExtensions {
         param ([string]$UserProfile)
+
         $firefoxProfilesIni = Join-Path $UserProfile 'AppData\Roaming\Mozilla\Firefox\profiles.ini'
         if (-Not (Test-Path $firefoxProfilesIni)) { return }
 
@@ -97,6 +93,8 @@ function Run-BrowserExtensionDetails {
         }
     }
 
+    Write-Host "📦 Collecting browser extension details..." -ForegroundColor Cyan
+
     $AllResults = @()
     $Users = Get-ChildItem 'C:\Users' -Directory | Where-Object { $_.Name -notin @('Default', 'Public', 'All Users') }
 
@@ -114,28 +112,47 @@ function Run-BrowserExtensionDetails {
 
     $SortedResults = $AllResults | Sort-Object Browser
 
-    $SortedResults | Format-Table -Property Browser, ExtensionID, Name, Version, Description, InstallLocation, Path -AutoSize
+    if ($SortedResults.Count -eq 0) {
+        Write-Host "⚠️ No browser extensions found." -ForegroundColor Yellow
+    } else {
+        $SortedResults | Format-Table -Property Browser, ExtensionID, Name, Version, Description, InstallLocation, Path -AutoSize
+    }
 
     $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $hostname = $env:COMPUTERNAME
     $exportPath = "C:\Script-Export"
-
     if (-Not (Test-Path $exportPath)) {
         New-Item -Path $exportPath -ItemType Directory | Out-Null
     }
-
     $csvPath = Join-Path $exportPath "BrowserExtensions_$timestamp`_$hostname.csv"
     $SortedResults | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
 
-    Write-Host "`nReport saved to: $csvPath" -ForegroundColor Green
-    Read-Host -Prompt "`nPress ENTER to return to menu"
+    Write-Host "`n✅ Report saved to: $csvPath" -ForegroundColor Green
+    Read-Host -Prompt "Press ENTER to continue"
 }
 
-# --------------------------------------------------------------------------
-# Remaining functions (Run-OSQueryBrowserExtensions, Run-OfficeValidation, etc.)
-# --------------------------------------------------------------------------
+# Placeholder for all other existing script functions like:
+# Run-OfficeValidation, Run-DriverValidation, Run-RoamingProfileValidation,
+# Run-OSQueryBrowserExtensions, Run-SSLCipherValidation, Run-WindowsPatchDetails, etc.
+# These remain unchanged from the previous master version.
 
-# NOTE: All other previously saved functions (like Run-OSQueryBrowserExtensions, Run-SSLCipherValidation, etc.) remain unchanged.
-# If you'd like me to output the **entire script including all functions** (it is quite long), just confirm and I will generate it fully.
+function Run-SelectedOption {
+    param($choice)
+    switch ($choice.ToUpper()) {
+        "1" { Run-ValidationScripts }
+        "2" { Write-Host "[Placeholder] Agent Maintenance" }
+        "3" { Write-Host "[Placeholder] Probe Troubleshooting" }
+        "4" { Run-ZipAndEmailResults }
+        "Q" { exit }
+    }
+}
 
-Let me know if you'd like the whole script reprinted in full now with the replacement included, or continue with additional changes.
+function Start-Tool {
+    do {
+        Show-MainMenu
+        $choice = Read-Host "Enter your choice"
+        Run-SelectedOption -choice $choice
+    } while ($choice.ToUpper() -ne "Q")
+}
+
+Start-Tool
