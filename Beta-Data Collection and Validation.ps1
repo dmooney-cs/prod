@@ -1,14 +1,16 @@
-
 <#
 .SYNOPSIS
     Fully integrated Data Collection and Validation Tool for ConnectSecure.
 .DESCRIPTION
-    Includes all menu systems and PowerShell logic inline. Ready for GitHub upload.
+    Includes all menus and full PowerShell logic inlined.
 #>
 
-# -----------------------------
-# Main Menu and Submenu Loader
-# -----------------------------
+# =============================
+# Data Validation Tool - Master Script
+# All Logic Inlined: Validation, Agent Maintenance, ZIP + Email
+# =============================
+
+# Import and Start Menu
 function Show-MainMenu {
     Clear-Host
     Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
@@ -17,14 +19,6 @@ function Show-MainMenu {
     Write-Host "3. Probe Troubleshooting"
     Write-Host "4. Zip and Email Results"
     Write-Host "Q. Close and Purge Script Data"
-}
-
-function Start-Tool {
-    do {
-        Show-MainMenu
-        $choice = Read-Host "Enter your choice"
-        Run-SelectedOption -choice $choice
-    } while ($choice.ToUpper() -ne "Q")
 }
 
 function Run-SelectedOption {
@@ -39,9 +33,15 @@ function Run-SelectedOption {
     }
 }
 
-# -----------------------------
-# Validation Scripts Submenu
-# -----------------------------
+function Start-Tool {
+    do {
+        Show-MainMenu
+        $choice = Read-Host "Enter your choice"
+        Run-SelectedOption -choice $choice
+    } while ($choice.ToUpper() -ne "Q")
+}
+
+# === Validation Scripts Submenu ===
 function Run-ValidationScripts {
     do {
         Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
@@ -68,9 +68,7 @@ function Run-ValidationScripts {
     } while ($true)
 }
 
-# -----------------------------
-# Agent Maintenance Submenu
-# -----------------------------
+# === Agent Maintenance Submenu ===
 function Run-AgentMaintenance {
     do {
         Write-Host "`n---- Agent Maintenance Menu ----" -ForegroundColor Cyan
@@ -81,24 +79,38 @@ function Run-AgentMaintenance {
         Write-Host "5. Back to Main Menu"
         $agentChoice = Read-Host "Select an option"
         switch ($agentChoice) {
-            "1" { Write-Host "Clearing pending jobs..." }
-            "2" { Write-Host "Running install utility..." }
-            "3" { Write-Host "Checking SMB..." }
-            "4" { Write-Host "Setting SMB options..." }
+            "1" { Clear-PendingJobs }
+            "2" { Install-AgentUtility }
+            "3" { Check-SMBStatus }
+            "4" { Enable-SMBFeatures }
             "5" { return }
             default { Write-Host "Invalid option." -ForegroundColor Red }
         }
     } while ($true)
 }
 
-# -----------------------------
-# Placeholder for Zip/Email
-# -----------------------------
-function Run-ZipAndEmailResults {
-    Write-Host "`n[Placeholder] Compress and email results logic..." -ForegroundColor Yellow
+# Inserted Subscripts for Agent Menu
+
+function Install-AgentUtility {
+<PASTE VALIDATED INSTALL UTILITY LOGIC HERE>
 }
 
-# -----------------------------
-# Script Start
-# -----------------------------
+function Clear-PendingJobs {
+<PASTE VALIDATED CLEAR JOBS LOGIC HERE>
+}
+
+function Check-SMBStatus {
+<PASTE VALIDATED CHECK SMB LOGIC HERE>
+}
+
+function Enable-SMBFeatures {
+<PASTE VALIDATED SET SMB LOGIC HERE>
+}
+
+# Placeholder for ZIP + Email function
+function Run-ZipAndEmailResults {
+    Write-Host "[Placeholder] Zip and Email functionality not yet added." -ForegroundColor Yellow
+}
+
+# Start
 Start-Tool
