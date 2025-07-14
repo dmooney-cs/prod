@@ -1,4 +1,4 @@
-# Data Collection and Validation Tool - PROD
+# Data Collection and Validation Tool - Working Version
 
 function Show-MainMenu {
     Clear-Host
@@ -88,12 +88,6 @@ function Run-OfficeValidation {
     $file = "$path\OfficeApps-$timestamp-$hostname.csv"
     $results | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
     Write-Host "Exported to: $file" -ForegroundColor Green
-    if ($results.Count -gt 0) {
-        $results | Format-Table -AutoSize | Out-Host
-    } else {
-        Write-Host "No results found." -ForegroundColor Yellow
-    }
-    Read-Host "Press Enter to return to menu"
 }
 
 function Run-DriverValidation {
@@ -107,12 +101,6 @@ function Run-DriverValidation {
         Manufacturer, DriverPath
     $driverInfo | Export-Csv -Path $exportPath -NoTypeInformation -Encoding UTF8
     Write-Host "Exported to: $exportPath" -ForegroundColor Green
-    if ($driverInfo.Count -gt 0) {
-        $driverInfo | Format-Table -AutoSize | Out-Host
-    } else {
-        Write-Host "No results found." -ForegroundColor Yellow
-    }
-    Read-Host "Press Enter to return to menu"
 }
 
 function Run-RoamingProfileValidation {
@@ -134,20 +122,16 @@ function Run-RoamingProfileValidation {
     }
     $profileData | Export-Csv -Path $csvFile -NoTypeInformation
     Write-Host "Exported to: $csvFile" -ForegroundColor Green
-    if ($profileData.Count -gt 0) {
-        $profileData | Format-Table -AutoSize | Out-Host
-    } else {
-        Write-Host "No results found." -ForegroundColor Yellow
-    }
-    Read-Host "Press Enter to return to menu"
 }
 
 function Run-BrowserExtensionDetails {
-    Write-Host "Enumerating browser extensions is not implemented here." -ForegroundColor Yellow
-    Read-Host "Press Enter to return to menu"
+    # Placeholder for non-OSQuery browser extension detection (add your logic here if needed)
+    Write-Host "Standard browser extension collection not implemented in this version." -ForegroundColor Yellow
+    Read-Host -Prompt "Press any key to continue"
 }
 
 function Run-OSQueryBrowserExtensions {
+    # Timestamp and hostname
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
     $outputDir = "C:\Script-Export"
@@ -218,16 +202,21 @@ GROUP BY unique_id;
 }
 
 function Run-SSLCipherValidation {
+    # Validate-SSLCiphersV2.ps1
+
+    # Set export path and log file
     $exportDir = "C:\Script-Export"
     if (-not (Test-Path $exportDir)) {
         New-Item -Path $exportDir -ItemType Directory | Out-Null
     }
 
+    # Timestamp and system info
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
     $logFile = "$exportDir\SSLCipherScanLog-$timestamp.csv"
     $outputFile = "$exportDir\TLS443Scan-$hostname-$timestamp.csv"
 
+    # Logging function
     function Log-Action {
         param([string]$Action)
         [PSCustomObject]@{
@@ -238,6 +227,7 @@ function Run-SSLCipherValidation {
 
     Log-Action "Starting SSL Cipher Scan"
 
+    # Get local IP address
     $localIP = (Get-NetIPAddress -AddressFamily IPv4 |
         Where-Object { $_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' } |
         Select-Object -First 1 -ExpandProperty IPAddress)
@@ -249,10 +239,12 @@ function Run-SSLCipherValidation {
         return
     }
 
+    # Paths
     $nmapPath = "C:\Program Files (x86)\CyberCNSAgent\nmap"
     $nmapExe = Join-Path $nmapPath "nmap.exe"
     $npcapInstaller = Join-Path $nmapPath "npcap-1.50-oem.exe"
 
+    # Ensure Nmap exists
     if (-not (Test-Path $nmapExe)) {
         Write-Host "`n❌ Nmap not found. Please convert the ConnectSecure agent to a probe, and re-attempt this scan." -ForegroundColor Red
         Write-Host "ℹ️  In the future, NMAP will be automatically installed if missing." -ForegroundColor Yellow
@@ -261,11 +253,13 @@ function Run-SSLCipherValidation {
         return
     }
 
+    # Function: Check for Npcap compatibility issue
     function Test-Npcap {
         $versionOutput = & $nmapExe -V 2>&1
         return ($versionOutput -match "Could not import all necessary Npcap functions")
     }
 
+    # Step 1: Test for Npcap problem
     Write-Host "`n🔍 Testing Nmap for Npcap compatibility..." -ForegroundColor Cyan
     Log-Action "Checking for Npcap compatibility via Nmap"
 
@@ -295,6 +289,7 @@ function Run-SSLCipherValidation {
         }
     }
 
+    # Step 2: Run full Nmap SSL Cipher scan
     Write-Host "`n🔍 Running SSL Cipher enumeration on $localIP:443..." -ForegroundColor Cyan
     Log-Action "Running Nmap SSL scan on $localIP"
 
@@ -317,10 +312,15 @@ function Run-SSLCipherValidation {
         return
     }
 
+    # Display result location
     Write-Host "`n✅ Scan complete. Results saved to:" -ForegroundColor Green
     Write-Host "$outputFile" -ForegroundColor Green
     Log-Action "Results saved to $outputFile"
+
     Log-Action "SSL Cipher Scan completed"
+
+    # Pause before exit
+    Write-Host ""
     Read-Host -Prompt "Press ENTER to exit..."
 }
 
@@ -328,50 +328,53 @@ function Run-WindowsPatchDetails {
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
 
-    # === 1. Get-HotFix Export ===
-    Write-Host "`n[1/3] Collecting patch info via Get-HotFix..." -ForegroundColor Cyan
-    $getHotfixFile = "C:\Script-Export\GetHotFix-$timestamp-$hostname.csv"
-    try {
-        $getHotfixes = Get-HotFix | Where-Object { $_.HotFixID } | ForEach-Object {
-            [PSCustomObject]@{
-                HotfixID = $_.HotFixID
-                Description = $_.Description
-                InstalledOn = $_.InstalledOn
-                InstalledBy = $_.InstalledBy
-                Source = "Get-HotFix"
+    $out1 = "C:\Script-Export\WindowsPatches-GetHotFix-$timestamp-$hostname.csv"
+    $out2 = "C:\Script-Export\WindowsPatches-WMIC-$timestamp-$hostname.csv"
+    $out3 = "C:\Script-Export\WindowsPatches-OSQuery-$timestamp-$hostname.csv"
+
+    if (-not (Test-Path (Split-Path $out1))) { New-Item -ItemType Directory -Path (Split-Path $out1) | Out-Null }
+    if (-not (Test-Path (Split-Path $out2))) { New-Item -ItemType Directory -Path (Split-Path $out2) | Out-Null }
+    if (-not (Test-Path (Split-Path $out3))) { New-Item -ItemType Directory -Path (Split-Path $out3) | Out-Null }
+
+    Get-HotFix | Export-Csv -Path $out1 -NoTypeInformation
+    $wmicOut = (wmic qfe get HotfixID | findstr /v HotFixID) -split "`r`n" | Where-Object { $_ } |
+        ForEach-Object { [PSCustomObject]@{ HotfixID = $_.Trim(); Source = "WMIC" } }
+    $wmicOut | Export-Csv -Path $out2 -NoTypeInformation
+
+    $osquery = "C:\Program Files (x86)\CyberCNSAgent\osqueryi.exe"
+    if (Test-Path $osquery) {
+        $query = "select hotfix_id, description from patches;"
+        $output = & $osquery --json "$query"
+        if ($output) {
+            try {
+                $parsed = $output | ConvertFrom-Json
+                $parsed | Export-Csv -Path $out3 -NoTypeInformation
+            } catch {
+                Write-Warning "Failed to parse osquery JSON output: $_"
             }
         }
-        if ($getHotfixes.Count -gt 0) {
-            $getHotfixes | Export-Csv -Path $getHotfixFile -NoTypeInformation -Encoding UTF8
-            Write-Host "Get-HotFix results saved to:" -ForegroundColor Green
-            Write-Host "$getHotfixFile" -ForegroundColor Cyan
-            $getHotfixes | Format-Table -AutoSize | Out-Host
-        } else {
-            Write-Host "No results from Get-HotFix." -ForegroundColor Yellow
-        }
-    } catch {
-        Write-Warning "Failed to retrieve results via Get-HotFix: $_"
     }
 
-    # === 2. WMIC Export ===
-    Write-Host "`n[2/3] Collecting patch info via WMIC..." -ForegroundColor Cyan
-    $wmicOutputFile = "C:\Script-Export\WMIC-Patches-$timestamp-$hostname.csv"
-    $wmicHotfixes = @()
-    try {
-        $wmicRaw = (wmic qfe get HotfixID | findstr /v HotFixID) -split "`r`n"
-        $wmicHotfixes = $wmicRaw | Where-Object { $_ -and $_.Trim() -ne "" } | ForEach-Object {
-            [PSCustomObject]@{
-                HotfixID = $_.Trim()
-                Source   = "WMIC"
-            }
-        }
-        if ($wmicHotfixes.Count -gt 0) {
-            $wmicHotfixes | Export-Csv -Path $wmicOutputFile -NoTypeInformation -Encoding UTF8
-            Write-Host "WMIC patch list saved to:" -ForegroundColor Green
-            Write-Host "$wmicOutputFile" -ForegroundColor Cyan
-            $wmicHotfixes | Format-Table -AutoSize | Out-Host
-        } else {
-            Write-Host "No hotfixes found using WMIC." -ForegroundColor Yellow
-        }
-    } catch {
-        Write-Warning "
+    Write-Host "Patch data exported to: $out1, $out2, $out3" -ForegroundColor Green
+}
+
+function Run-SelectedOption {
+    param($choice)
+    switch ($choice.ToUpper()) {
+        "1" { Run-ValidationScripts }
+        "2" { Write-Host "[Placeholder] Agent Maintenance" }
+        "3" { Write-Host "[Placeholder] Probe Troubleshooting" }
+        "4" { Write-Host "[Placeholder] Zip and Email Results" }
+        "Q" { exit }
+    }
+}
+
+function Start-Tool {
+    do {
+        Show-MainMenu
+        $choice = Read-Host "Enter your choice"
+        Run-SelectedOption -choice $choice
+    } while ($choice.ToUpper() -ne "Q")
+}
+
+Start-Tool
