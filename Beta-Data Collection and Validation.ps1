@@ -107,28 +107,6 @@ function Run-DriverValidation {
     Write-Host "Exported to: $exportPath" -ForegroundColor Green
 }
 
-# Roaming Profile Validation
-function Run-RoamingProfileValidation {
-    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $hostname = $env:COMPUTERNAME
-    $csvFile = "C:\Script-Export\Profiles_Applications_$hostname_$timestamp.csv"
-    $profileData = @()
-    $profiles = Get-WmiObject -Class Win32_UserProfile | Where-Object { $_.Special -eq $false }
-    foreach ($p in $profiles) {
-        $name = $p.LocalPath.Split('\')[-1]
-        $apps = Get-ChildItem "C:\Users\$name\AppData\Local" -Directory -ErrorAction SilentlyContinue
-        foreach ($a in $apps) {
-            $profileData += [PSCustomObject]@{
-                ProfileName = $name
-                Application = $a.Name
-                Path = $a.FullName
-            }
-        }
-    }
-    $profileData | Export-Csv -Path $csvFile -NoTypeInformation
-    Write-Host "Exported to: $csvFile" -ForegroundColor Green
-}
-
 # Zip and Email Results
 function Run-ZipAndEmailResults {
     # Set up folder and output paths
@@ -256,7 +234,13 @@ function Start-Tool {
             "2" { Write-Host "[Placeholder] Agent Maintenance" }
             "3" { Write-Host "[Placeholder] Probe Troubleshooting" }
             "4" { Run-ZipAndEmailResults }
-            "Q" { exit }
+            "Q" { 
+                # Purge script data and exit
+                Write-Host "Purging script data..." -ForegroundColor Red
+                Remove-Item -Path "C:\Script-Export\*" -Recurse -Force
+                Write-Host "All files deleted from C:\Script-Export"
+                exit 
+            }
         }
     } while ($choice.ToUpper() -ne "Q")
 }
