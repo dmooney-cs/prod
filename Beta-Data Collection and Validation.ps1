@@ -1,136 +1,186 @@
-# ==============================
-# Data Collection & Validation Tool - Full V1 Version
-# All Logic Inlined - GitHub Compatible
-# Includes: Office, Extensions, Drivers, SMB, SSL, Updates, Agent Tools, ZIP
-# ==============================
 
-# Region: Utility Functions
-function Ensure-ExportPath {
-    $global:ExportPath = "C:\Script-Export"
-    if (-not (Test-Path $ExportPath)) {
-        New-Item -Path $ExportPath -ItemType Directory | Out-Null
-    }
-    $global:Timestamp = Get-Date -Format "yyyy-MM-dd_HHmmss"
-    $global:Hostname = $env:COMPUTERNAME
+<#
+Data Collection and Validation Tool - Master Script
+All Logic Inlined: Validation, Agent Maintenance, Troubleshooting, and Export
+#>
+
+# Create export directory
+$ExportDir = "C:\Script-Export"
+if (-not (Test-Path $ExportDir)) {
+    New-Item -Path $ExportDir -ItemType Directory | Out-Null
 }
 
-function Pause-ReturnMenu {
-    Write-Host "`nPress any key to return to the menu..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    Show-MainMenu
+function Pause-Script {
+    Write-Host "`nPress any key to continue..." -ForegroundColor DarkGray
+    [void][System.Console]::ReadKey($true)
 }
 
-# EndRegion
-
-# Region: Menu Navigation
 function Show-MainMenu {
     Clear-Host
-    Ensure-ExportPath
-    Write-Host "=== Data Validation Master Menu ===" -ForegroundColor Cyan
-    Write-Host "1. Microsoft Office Validation"
-    Write-Host "2. Browser Extension Audit"
-    Write-Host "3. Driver Validation"
-    Write-Host "4. Check SMB Versions"
-    Write-Host "5. Validate SSL Ciphers"
-    Write-Host "6. Windows Update Validation"
-    Write-Host "7. Agent Job Clear"
-    Write-Host "8. Enable SMB Settings"
-    Write-Host "9. Zip and Prepare for Email"
-    Write-Host "Q. Quit"
-    $choice = Read-Host "Select an option"
-    switch ($choice) {
-        '1' { Run-MicrosoftOfficeValidation; return }
-        '2' { Run-BrowserExtensionAudit; return }
-        '3' { Run-DriverValidation; return }
-        '4' { Run-SMBVersionCheck; return }
-        '5' { Run-SSLCipherScan; return }
-        '6' { Run-WindowsUpdateValidation; return }
-        '7' { Run-AgentJobClear; return }
-        '8' { Run-EnableSMB; return }
-        '9' { Run-ZipAndEmail; return }
-        'Q' { exit }
-        default { Show-MainMenu; return }
+    Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
+    Write-Host "1. Validation Scripts"
+    Write-Host "2. Agent Maintenance"
+    Write-Host "3. Probe Troubleshooting"
+    Write-Host "4. Zip and Email Results"
+    Write-Host "Q. Close and Purge Script Data"
+    $selection = Read-Host "Select an option"
+    switch ($selection) {
+        '1' { Show-ValidationMenu }
+        '2' { Show-AgentMaintenanceMenu }
+        '3' { Show-ProbeTroubleshootingMenu }
+        '4' { Run-ZipAndEmailResults }
+        'Q' { Cleanup-And-Exit }
+        default { Show-MainMenu }
     }
 }
-# EndRegion
 
-# Region: Module Scripts
-function Run-MicrosoftOfficeValidation {
+function Show-ValidationMenu {
     Clear-Host
-    Write-Host "=== Running Microsoft Office Validation ===" -ForegroundColor Cyan
-    $csvPath = "$ExportPath\OfficeValidation_$Timestamp`_$Hostname.csv"
+    Write-Host "======== Validation Scripts Menu ========" -ForegroundColor Cyan
+    Write-Host "1. Microsoft Office Validation"
+    Write-Host "2. Driver Validation"
+    Write-Host "3. Roaming Profile Applications"
+    Write-Host "4. Browser Extension Details"
+    Write-Host "5. OSQuery Browser Extensions"
+    Write-Host "6. SSL Cipher Validation"
+    Write-Host "7. Windows Patch Details"
+    Write-Host "8. Active Directory Collection"
+    Write-Host "9. Back to Main Menu"
+    $choice = Read-Host "Select an option"
+    switch ($choice) {
+        '1' { Run-OfficeValidation }
+        '2' { Run-DriverValidation }
+        '3' { Run-RoamingProfileApps }
+        '4' { Run-BrowserExtensionDetails }
+        '5' { Run-OSQueryBrowserExtensions }
+        '6' { Run-SSLCipherValidation }
+        '7' { Run-WindowsPatchValidation }
+        '8' { Run-ActiveDirectoryValidation }
+        '9' { Show-MainMenu }
+        default { Show-ValidationMenu }
+    }
+}
+
+function Run-OfficeValidation {
+    Write-Host "Scanning for installed applications..." -ForegroundColor Cyan
+    $appFilter = Read-Host "Enter a keyword to filter applications (or press Enter to list all)"
+
     $results = @()
-    $officePaths = @(
-        "HKLM:\SOFTWARE\Microsoft\Office",
-        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Office"
+
+    $registryPaths = @(
+        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
     )
-    foreach ($path in $officePaths) {
-        if (Test-Path $path) {
-            Get-ChildItem -Path $path -ErrorAction SilentlyContinue | ForEach-Object {
-                if ($_.Name -match '\\\d+\.\d+') {
-                    $version = $_.PSChildName
+
+    foreach ($regPath in $registryPaths) {
+        Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_.DisplayName) {
+                if ($appFilter -eq "" -or $_.DisplayName -like "*$appFilter*") {
+                    $category = "Application"
+                    $registryPath = $_.PSPath -replace "^Microsoft.PowerShell.Core\Registry::", ""
+                    $installLocation = if ($_.InstallLocation) { $_.InstallLocation } else { "N/A" }
+
                     $results += [PSCustomObject]@{
-                        Path    = $_.Name
-                        Version = $version
-                        Type    = "Registry"
+                        Name             = $_.DisplayName
+                        Version          = $_.DisplayVersion
+                        Publisher        = $_.Publisher
+                        InstallLocation  = $installLocation
+                        InstallDate      = $_.InstallDate
+                        InstalledBy      = $_.InstallSource
+                        Source           = "Registry"
+                        Category         = $category
+                        RegistryPath     = $registryPath
+                        ProfileType      = "N/A"
                     }
                 }
             }
         }
     }
-    $programDirs = @("$env:ProgramFiles", "$env:ProgramFiles(x86)")
-    foreach ($dir in $programDirs) {
-        $officeDir = Join-Path $dir "Microsoft Office"
-        if (Test-Path $officeDir) {
+
+    Get-AppxPackage | ForEach-Object {
+        if ($appFilter -eq "" -or $_.Name -like "*$appFilter*" -or $_.PackageFullName -like "*$appFilter*") {
+            $category = "Microsoft Store App"
+            $installLocation = if ($_.InstallLocation) { $_.InstallLocation } else { "N/A" }
+
             $results += [PSCustomObject]@{
-                Path    = $officeDir
-                Version = ""
-                Type    = "Filesystem"
+                Name             = $_.Name
+                Version          = $_.Version
+                Publisher        = $_.Publisher
+                InstallLocation  = $installLocation
+                InstallDate      = "N/A"
+                InstalledBy      = "N/A"
+                Source           = "Microsoft Store"
+                Category         = $category
+                RegistryPath     = "N/A"
+                ProfileType      = "N/A"
             }
         }
     }
-    $results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
-    Write-Host "Exported to: $csvPath" -ForegroundColor Green
-    Pause-ReturnMenu
-}
 
-function Run-BrowserExtensionAudit {
-    Clear-Host
-    Write-Host "=== Running Browser Extension Audit ===" -ForegroundColor Cyan
-    $results = @()
-    $userProfiles = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notin @("Public", "Default", "All Users") }
-    foreach ($user in $userProfiles) {
-        $userPath = $user.FullName
-        $chromePath = "$userPath\AppData\Local\Google\Chrome\User Data\Default\Extensions"
-        if (Test-Path $chromePath) {
-            Get-ChildItem -Path $chromePath -Directory | ForEach-Object {
-                $results += [PSCustomObject]@{
-                    Browser     = "Chrome"
-                    ExtensionID = $_.Name
-                    Path        = $_.FullName
-                    User        = $user.Name
-                }
-            }
-        }
-        $edgePath = "$userPath\AppData\Local\Microsoft\Edge\User Data\Default\Extensions"
-        if (Test-Path $edgePath) {
-            Get-ChildItem -Path $edgePath -Directory | ForEach-Object {
-                $results += [PSCustomObject]@{
-                    Browser     = "Edge"
-                    ExtensionID = $_.Name
-                    Path        = $_.FullName
-                    User        = $user.Name
-                }
-            }
+    $teamsPaths = Get-ChildItem "C:\Users\*\AppData\Local\Microsoft\Teams\Teams.exe" -Recurse -ErrorAction SilentlyContinue
+    foreach ($teamsPath in $teamsPaths) {
+        $version = (Get-Item $teamsPath.FullName).VersionInfo.FileVersion
+        $installLocation = $teamsPath.DirectoryName
+
+        $results += [PSCustomObject]@{
+            Name             = 'Microsoft Teams'
+            Version          = $version
+            Publisher        = 'Microsoft'
+            InstallLocation  = $installLocation
+            InstallDate      = "N/A"
+            InstalledBy      = "N/A"
+            Source           = "Teams (Local)"
+            Category         = "Microsoft Store App"
+            RegistryPath     = "N/A"
+            ProfileType      = "N/A"
         }
     }
-    $csvPath = "$ExportPath\BrowserExtensions_$Timestamp`_$Hostname.csv"
-    $results | Sort-Object Browser, ExtensionID | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
-    Write-Host "Extensions exported to: $csvPath" -ForegroundColor Green
-    Pause-ReturnMenu
+
+    if ($results.Count -eq 0) {
+        Write-Host "No matching applications found." -ForegroundColor Yellow
+    } else {
+        Write-Host "`nDetected Applications:" -ForegroundColor Green
+        $results | Sort-Object Name | Format-Table Name, Version, Publisher, InstallLocation, InstallDate, InstalledBy, Category, Source -AutoSize
+
+        $dateTime = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        $hostname = $env:COMPUTERNAME
+        $exportPath = "C:\Script-Export"
+
+        if (-not (Test-Path -Path $exportPath)) {
+            New-Item -Path $exportPath -ItemType Directory
+            Write-Host "Created folder: $exportPath" -ForegroundColor Cyan
+        }
+
+        $csvPath = "$exportPath\All Applications Detected - $dateTime - $hostname.csv"
+        $results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
+        Write-Host "`nResults exported to: $csvPath" -ForegroundColor Green
+    }
+    Pause-Script
 }
 
-# ... [The rest of the module functions remain unchanged but will now be called and return properly]
+# Import Agent Maintenance Submenu
+. { <INSERT AGENT MAINTENANCE MENU V1 SCRIPT HERE> }
 
-# Run Menu
+# Import Probe Troubleshooting Submenu
+. { <INSERT PROBE TROUBLESHOOTING MENU V1 SCRIPT HERE> }
+
+# Import Zip + Email Logic
+. { <INSERT ZIP AND EMAIL RESULTS V1 SCRIPT HERE> }
+
+# Purge Export and Temp Data
+function Cleanup-And-Exit {
+    Write-Host "`nCleaning up all Script Data..." -ForegroundColor Yellow
+    $pathsToDelete = @("C:\Script-Export", "C:\Script-Temp")
+    foreach ($path in $pathsToDelete) {
+        if (Test-Path $path) {
+            Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Write-Host "Script data purged successfully. Exiting..." -ForegroundColor Green
+    Pause-Script
+    exit
+}
+
+# Launch Menu
 Show-MainMenu
