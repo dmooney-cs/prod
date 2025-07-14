@@ -144,134 +144,7 @@ function Run-AgentClearJobs {
     Write-Host "`n=== AgentCheck Task Completed ===" -ForegroundColor Magenta
 }
 
-function Run-AgentInstallUtility {
-    $exportDir = "C:\Script-Export"
-    if (-not (Test-Path $exportDir)) {
-        New-Item -Path $exportDir -ItemType Directory | Out-Null
-    }
-    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $hostname = $env:COMPUTERNAME
-    $csvLogFile = "$exportDir\AgentMaintenance-$timestamp-$hostname.csv"
-    $textLogFile = "$exportDir\AgentMaintenance-FullOutput-$timestamp-$hostname.txt"
-    Start-Transcript -Path $textLogFile -Append -Force
-    $log = @()
 
-    function Write-Log { param ([string]$action,[string]$target,[string]$result)
-        $global:log += [PSCustomObject]@{
-            Timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-            Action    = $action; Target = $target; Result = $result }
-    }
-
-    $agentPath = "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat"
-    $services = @("cybercnsagent", "cybercnsagentmonitor")
-
-    if (Test-Path $agentPath) {
-        $uninstallScript = Get-Content $agentPath -Raw
-        $backup = "$exportDir\UninstallScriptBackup-$timestamp-$hostname.txt"
-        $uninstallScript | Out-File -FilePath $backup -Encoding UTF8
-        Write-Log "ExportFile" "uninstall.bat Backup" "Saved"
-        cmd /c `"$agentPath`"
-        Write-Log "Uninstall" "Agent" "Attempted"
-    }
-
-    $companyId = Read-Host "Enter Company ID"
-    $tenantId  = Read-Host "Enter Tenant ID"
-    $secretKey = Read-Host "Enter Secret Key"
-    $command = ".\cybercnsagent.exe -c $companyId -e $tenantId -j $secretKey -i"
-    Write-Host "Command: $command" -ForegroundColor Yellow
-    $confirm = Read-Host "Run install command? (Y/N)"
-    if ($confirm -match '^[Yy]$') {
-        if (-not (Test-Path ".\cybercnsagent.exe")) {
-            Invoke-WebRequest -Uri "https://agentv3.myconnectsecure.com/cybercnsagent.exe" -OutFile ".\cybercnsagent.exe" -UseBasicParsing
-            Write-Log "Download" "cybercnsagent.exe" "Success"
-        }
-        cmd /c $command
-        Write-Log "Install" "Agent" "Executed"
-    } else {
-        Write-Host "Installation cancelled."
-        Write-Log "Install" "Agent" "Cancelled"
-    }
-
-    $log | Export-Csv -Path $csvLogFile -NoTypeInformation -Encoding UTF8
-    Stop-Transcript
-    Write-Host "Logs saved to: $csvLogFile and $textLogFile"
-}
-
-function Run-AgentCheckSMB {
-    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $outputDir = "C:\Script-Export"
-    if (-not (Test-Path $outputDir)) { New-Item -Path $outputDir -ItemType Directory | Out-Null }
-    $outputFile = "$outputDir\SMB_Version_Report_$timestamp.csv"
-    $SmbRegistryPath = "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters"
-    $results = @()
-
-    $Smb1Enabled = Get-ItemProperty -Path $SmbRegistryPath -Name "SMB1" -ErrorAction SilentlyContinue
-    $results += [PSCustomObject]@{
-        SMBVersion = "SMB 1.0"
-        Status = if ($Smb1Enabled.SMB1 -eq 1) {"Enabled"} else {"Disabled"}
-        DetectionKey = "$SmbRegistryPath\SMB1"
-        DisableKey = if ($Smb1Enabled.SMB1 -eq 1) {"$SmbRegistryPath\SMB1"} else {""}
-    }
-
-    $Smb2Enabled = Get-ItemProperty -Path $SmbRegistryPath -Name "SMB2" -ErrorAction SilentlyContinue
-    $results += [PSCustomObject]@{
-        SMBVersion = "SMB 2.0"
-        Status = if ($Smb2Enabled.SMB2 -eq 1) {"Enabled"} else {"Disabled"}
-        DetectionKey = "$SmbRegistryPath\SMB2"
-        DisableKey = if ($Smb2Enabled.SMB2 -eq 1) {"$SmbRegistryPath\SMB2"} else {""}
-    }
-
-    $Smb3Enabled = Get-ItemProperty -Path $SmbRegistryPath -Name "SMB3" -ErrorAction SilentlyContinue
-    $results += [PSCustomObject]@{
-        SMBVersion = "SMB 3.0"
-        Status = if ($Smb3Enabled.SMB3 -eq 1) {"Enabled"} else {"Disabled"}
-        DetectionKey = "$SmbRegistryPath\SMB3"
-        DisableKey = if ($Smb3Enabled.SMB3 -eq 1) {"$SmbRegistryPath\SMB3"} else {""}
-    }
-
-    $results | Export-Csv -Path $outputFile -NoTypeInformation -Encoding UTF8
-    Write-Host "Report saved to: $outputFile" -ForegroundColor Green
-}
-
-function Run-AgentSetSMB {
-    Write-Host "`n=== Enabling SMB Functionality ===" -ForegroundColor Cyan
-    try {
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" -Name SMB2 -Type DWORD -Value 1 -Force
-        Write-Host "✔ SMB2 protocol enabled in registry." -ForegroundColor Green
-    } catch {
-        Write-Host "✖ Failed to enable SMB2 in registry: $_" -ForegroundColor Red
-    }
-
-    $firewallRules = @("File And Printer Sharing (SMB-In)", "File And Printer Sharing (NB-Session-In)")
-    foreach ($rule in $firewallRules) {
-        try {
-            Set-NetFirewallRule -DisplayName $rule -Enabled True -Profile Any
-            Write-Host "✔ Firewall rule '$rule' enabled." -ForegroundColor Green
-        } catch {
-            Write-Host "✖ Failed to enable firewall rule '$rule': $_" -ForegroundColor Red
-        }
-    }
-
-    try {
-        New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
-            -Name LocalAccountTokenFilterPolicy -PropertyType DWord -Value 1 -Force | Out-Null
-        Write-Host "✔ LocalAccountTokenFilterPolicy registry key set." -ForegroundColor Green
-    } catch {
-        Write-Host "✖ Failed to set LocalAccountTokenFilterPolicy: $_" -ForegroundColor Red
-    }
-    Write-Host "`n=== SMB Function Enablement Complete ===" -ForegroundColor Cyan
-}
-
-function Run-SelectedOption {
-    param($choice)
-    switch ($choice.ToUpper()) {
-        "1" { Run-ValidationScripts }
-        "2" { Run-AgentMaintenance }
-        "3" { Write-Host "[Placeholder] Probe Troubleshooting" }
-        "4" { Run-ZipAndEmailResults }
-        "Q" { exit }
-    }
-}
 
 function Start-Tool {
     do {
@@ -351,4 +224,154 @@ function Run-AgentUninstall {
         Write-Host "`nUninstall script not found. Skipping..." -ForegroundColor Yellow
         Write-Log "Uninstall" "Agent" "NotFound"
     }
+}
+
+function Run-AgentInstallUtility {
+# CyberCNS Agent Install Tool with Conditional Reinstall Prompt
+
+# Create export directory
+$exportDir = "C:\Script-Export"
+if (-not (Test-Path $exportDir)) {
+    New-Item -Path $exportDir -ItemType Directory | Out-Null
+}
+
+# Timestamps
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$hostname = $env:COMPUTERNAME
+$csvLogFile = "$exportDir\AgentMaintenance-$timestamp-$hostname.csv"
+$textLogFile = "$exportDir\AgentMaintenance-FullOutput-$timestamp-$hostname.txt"
+
+# Start capturing all output
+Start-Transcript -Path $textLogFile -Append -Force
+
+# Initialize action log
+$log = @()
+
+function Write-Log {
+    param (
+        [string]$action,
+        [string]$target,
+        [string]$result
+    )
+    $log += [PSCustomObject]@{
+        Timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+        Action    = $action
+        Target    = $target
+        Result    = $result
+    }
+}
+
+function Run-Uninstall {
+    $uninstallPath = "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat"
+
+    if (Test-Path $uninstallPath) {
+        try {
+            $scriptContents = Get-Content $uninstallPath -Raw
+            Write-Host "`n=== Contents of uninstall.bat ===" -ForegroundColor Cyan
+            Write-Host $scriptContents -ForegroundColor Gray
+
+            $backupPath = "$exportDir\UninstallScriptBackup-$timestamp-$hostname.txt"
+            $scriptContents | Out-File -FilePath $backupPath -Encoding UTF8
+            Write-Host "`nUninstall script backed up to: $backupPath" -ForegroundColor Green
+            Write-Log "ReadFile" "uninstall.bat" "Success"
+            Write-Log "ExportFile" "uninstall.bat Backup" "Saved"
+
+            Write-Host "`nRunning uninstall.bat inside PowerShell..." -ForegroundColor Cyan
+            cmd /c `"$uninstallPath`"
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "Uninstall completed successfully." -ForegroundColor Green
+                Write-Log "Uninstall" "Agent" "Success"
+            } else {
+                Write-Host "Uninstall exited with code $LASTEXITCODE." -ForegroundColor Yellow
+                Write-Log "Uninstall" "Agent" "ExitCode: $LASTEXITCODE"
+            }
+        } catch {
+            Write-Host "Failed to run uninstall: $_" -ForegroundColor Red
+            Write-Log "Uninstall" "Agent" "Failed"
+        }
+    } else {
+        Write-Host "`nUninstall script not found. Skipping..." -ForegroundColor Yellow
+        Write-Log "Uninstall" "Agent" "NotFound"
+    }
+}
+
+function Run-Install {
+    $companyId = Read-Host "Enter Company ID"
+    $tenantId  = Read-Host "Enter Tenant ID"
+    $secretKey = Read-Host "Enter Secret Key"
+
+    $installCmd = ".\cybercnsagent.exe -c $companyId -e $tenantId -j $secretKey -i"
+    Write-Host "`nGenerated command:" -ForegroundColor Cyan
+    Write-Host $installCmd -ForegroundColor Yellow
+
+    $confirm = Read-Host "`nDo you want to run this command? (Y/N)"
+    if ($confirm -notmatch '^[Yy]$') {
+        Write-Host "Installation cancelled by user." -ForegroundColor Red
+        Write-Log "Install" "Agent" "Cancelled"
+        return
+    }
+
+    if (-not (Test-Path ".\cybercnsagent.exe")) {
+        Write-Host "`nDownloading cybercnsagent.exe..." -ForegroundColor Cyan
+        try {
+            Invoke-WebRequest -Uri "https://agentv3.myconnectsecure.com/cybercnsagent.exe" -OutFile ".\cybercnsagent.exe" -UseBasicParsing
+            Write-Host "Download completed." -ForegroundColor Green
+            Write-Log "Download" "cybercnsagent.exe" "Success"
+        } catch {
+            Write-Host "Download failed: $_" -ForegroundColor Red
+            Write-Log "Download" "cybercnsagent.exe" "Failed"
+            return
+        }
+    }
+
+    Write-Host "`nRunning agent installer inside PowerShell..." -ForegroundColor Cyan
+    cmd /c $installCmd
+
+    if ($LASTEXITCODE -eq 0 -and (Test-Path "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat")) {
+        Write-Host "Agent installation appears successful." -ForegroundColor Green
+        Write-Log "Install" "Agent" "Success"
+    } else {
+        Write-Host "Agent install did not complete as expected (Exit Code: $LASTEXITCODE)." -ForegroundColor Red
+        Write-Log "Install" "Agent" "Failed (ExitCode: $LASTEXITCODE)"
+    }
+}
+
+# Main Script
+Clear-Host
+Write-Host "`nWindows Agent Install Tool V1" -ForegroundColor Cyan
+Write-Host "==================================="
+
+$uninstallBat = "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat"
+
+if (Test-Path $uninstallBat) {
+    Write-Host "`nAgent detected." -ForegroundColor Cyan
+    $reinstallConfirm = Read-Host "Would you like to Re-Install it? (Y/N)"
+    if ($reinstallConfirm -match '^[Yy]$') {
+        Write-Log "UserAction" "Agent Detected" "Reinstall Confirmed"
+        Run-Uninstall
+        Run-Install
+    } else {
+        Write-Host "Reinstallation canceled by user. No changes made." -ForegroundColor Yellow
+        Write-Log "UserAction" "Agent Detected" "Reinstall Declined"
+    }
+} else {
+    Write-Host "`nNo existing agent detected." -ForegroundColor Cyan
+    $installConfirm = Read-Host "Would you like to install the agent now? (Y/N)"
+    if ($installConfirm -match '^[Yy]$') {
+        Write-Log "UserAction" "Install Requested" "Confirmed"
+        Run-Install
+    } else {
+        Write-Host "Installation skipped." -ForegroundColor Yellow
+        Write-Log "UserAction" "Install Requested" "Declined"
+    }
+}
+
+# Export logs
+$log | Export-Csv -Path $csvLogFile -NoTypeInformation -Encoding UTF8
+Stop-Transcript
+
+Write-Host "`nAgent maintenance actions saved to:" -ForegroundColor Green
+Write-Host "$csvLogFile" -ForegroundColor White
+Write-Host "Full output log saved to:" -ForegroundColor Green
+Write-Host "$textLogFile" -ForegroundColor White
 }
