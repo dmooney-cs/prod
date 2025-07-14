@@ -375,3 +375,57 @@ Write-Host "$csvLogFile" -ForegroundColor White
 Write-Host "Full output log saved to:" -ForegroundColor Green
 Write-Host "$textLogFile" -ForegroundColor White
 }
+
+function Run-SelectedOption {
+    param($choice)
+
+    function Run-CloseAndPurge {
+        $exportPath = "C:\Script-Export"
+        if (-not (Test-Path $exportPath)) {
+            Write-Host "No export folder found. Nothing to purge." -ForegroundColor Yellow
+            Start-Sleep -Seconds 2
+            exit
+        }
+
+        $files = Get-ChildItem -Path $exportPath -Recurse -File -ErrorAction SilentlyContinue
+        if ($files.Count -eq 0) {
+            Write-Host "Export folder exists but contains no files." -ForegroundColor Yellow
+            Start-Sleep -Seconds 2
+            exit
+        }
+
+        $totalSize = [math]::Round(($files | Measure-Object Length -Sum).Sum / 1MB, 2)
+        Write-Host "`n🧹 Detected $($files.Count) files in '$exportPath'" -ForegroundColor Cyan
+        Write-Host "Total size: $totalSize MB" -ForegroundColor Cyan
+
+        $confirm = Read-Host "Are you sure you want to permanently delete all these files? (Y/N)"
+        if ($confirm -notin @('Y','y')) {
+            Write-Host "Purge cancelled. Returning to script." -ForegroundColor Yellow
+            return
+        }
+
+        try {
+            Remove-Item -Path $exportPath\* -Recurse -Force -ErrorAction Stop
+            Write-Host "`n✔ All script data purged from $exportPath" -ForegroundColor Green
+        } catch {
+            Write-Host "`n❌ Failed to purge files: $_" -ForegroundColor Red
+            return
+        }
+
+        for ($i = 10; $i -ge 1; $i--) {
+            Write-Host ("Exiting in {0} seconds..." -f $i) -NoNewline
+            Start-Sleep -Seconds 1
+            Write-Host "`r" -NoNewline
+        }
+        exit
+    }
+
+    switch ($choice.ToUpper()) {
+        "1" { Run-ValidationScripts }
+        "2" { Run-AgentMaintenanceMenu }
+        "3" { Run-ProbeTroubleshootingMenu }
+        "4" { Run-ZipAndEmailResults }
+        "Q" { Run-CloseAndPurge }
+        default { Write-Host "Invalid option." -ForegroundColor Red }
+    }
+}
