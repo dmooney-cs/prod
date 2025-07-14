@@ -208,3 +208,127 @@ function Start-Tool {
 }
 
 Start-Tool
+
+
+function Run-SSLCipherValidation {
+# Validate-SSLCiphersV2.ps1
+
+# Set export path and log file
+$exportDir = "C:\Script-Export"
+if (-not (Test-Path $exportDir)) {
+    New-Item -Path $exportDir -ItemType Directory | Out-Null
+}
+
+# Timestamp and system info
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$hostname = $env:COMPUTERNAME
+$logFile = "$exportDir\SSLCipherScanLog-$timestamp.csv"
+$outputFile = "$exportDir\TLS443Scan-$hostname-$timestamp.csv"
+
+# Logging function
+function Log-Action {
+    param([string]$Action)
+    [PSCustomObject]@{
+        Timestamp = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+        Action    = $Action
+    } | Export-Csv -Path $logFile -NoTypeInformation -Append
+}
+
+Log-Action "Starting SSL Cipher Scan"
+
+# Get local IP address
+$localIP = (Get-NetIPAddress -AddressFamily IPv4 |
+    Where-Object { $_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' } |
+    Select-Object -First 1 -ExpandProperty IPAddress)
+
+if (-not $localIP) {
+    Write-Host "❌ Could not determine local IP address." -ForegroundColor Red
+    Log-Action "Error: Could not determine local IP address"
+    Start-Sleep -Seconds 2
+    exit 1
+}
+
+# Paths
+$nmapPath = "C:\Program Files (x86)\CyberCNSAgent\nmap"
+$nmapExe = Join-Path $nmapPath "nmap.exe"
+$npcapInstaller = Join-Path $nmapPath "npcap-1.50-oem.exe"
+
+# Ensure Nmap exists
+if (-not (Test-Path $nmapExe)) {
+    Write-Host "`n❌ Nmap not found. Please convert the ConnectSecure agent to a probe, and re-attempt this scan." -ForegroundColor Red
+    Write-Host "ℹ️  In the future, NMAP will be automatically installed if missing." -ForegroundColor Yellow
+    Log-Action "Error: Nmap not found at expected path"
+    Start-Sleep -Seconds 2
+    exit 1
+}
+
+# Function: Check for Npcap compatibility issue
+function Test-Npcap {
+    $versionOutput = & $nmapExe -V 2>&1
+    return ($versionOutput -match "Could not import all necessary Npcap functions")
+}
+
+# Step 1: Test for Npcap problem
+Write-Host "`n🔍 Testing Nmap for Npcap compatibility..." -ForegroundColor Cyan
+Log-Action "Checking for Npcap compatibility via Nmap"
+
+if (Test-Npcap) {
+    Write-Host "`n⚠️  Npcap not functioning or incomplete." -ForegroundColor Yellow
+    Log-Action "Npcap issue detected"
+
+    if (Test-Path $npcapInstaller) {
+        Write-Host "⚙️  Installing bundled Npcap silently with WinPcap compatibility..." -ForegroundColor Cyan
+        Log-Action "Installing Npcap from $npcapInstaller"
+
+        Start-Process -FilePath $npcapInstaller -ArgumentList "/S", "/winpcap_mode=yes" -Wait -NoNewWindow
+
+        Write-Host "`n✅ Npcap installed. Retesting Nmap..." -ForegroundColor Green
+        Log-Action "Npcap installed. Retesting Nmap compatibility."
+
+        if (Test-Npcap) {
+            Write-Host "❌ Npcap issue still detected after installation. Scan may be incomplete." -ForegroundColor Red
+            Log-Action "Warning: Npcap issue persists after install"
+        }
+    } else {
+        Write-Host "`n❌ Required installer not found: $npcapInstaller" -ForegroundColor Red
+        Write-Host "➡️  Convert agent to Probe before attempting." -ForegroundColor Yellow
+        Log-Action "Npcap installer missing. User prompted to convert agent to probe."
+        Start-Sleep -Seconds 2
+        exit 1
+    }
+}
+
+# Step 2: Run full Nmap SSL Cipher scan
+Write-Host "`n🔍 Running SSL Cipher enumeration on $localIP:443..." -ForegroundColor Cyan
+Log-Action "Running Nmap SSL scan on $localIP"
+
+try {
+    $scanResult = & $nmapExe --script ssl-enum-ciphers -p 443 $localIP 2>&1
+    $scanResult | Set-Content -Path $outputFile -Encoding UTF8
+
+    if ($scanResult -match "Could not import all necessary Npcap functions") {
+        Write-Host "`n⚠️  Nmap still reports Npcap issue after install. Results may be incomplete." -ForegroundColor Yellow
+        Log-Action "Npcap warning detected in scan output"
+    } else {
+        Write-Host "`n=== SSL Cipher Scan Results ===" -ForegroundColor White
+        $scanResult
+        Log-Action "SSL Cipher scan completed successfully"
+    }
+} catch {
+    Write-Host "❌ Nmap scan failed: $_" -ForegroundColor Red
+    Log-Action "Error: Nmap scan failed"
+    Start-Sleep -Seconds 2
+    exit 1
+}
+
+# Display result location
+Write-Host "`n✅ Scan complete. Results saved to:" -ForegroundColor Green
+Write-Host "$outputFile" -ForegroundColor Green
+Log-Action "Results saved to $outputFile"
+
+Log-Action "SSL Cipher Scan completed"
+
+# Pause before exit
+Write-Host ""
+Read-Host -Prompt "Press ENTER to exit..."
+}
