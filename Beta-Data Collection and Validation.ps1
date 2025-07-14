@@ -149,138 +149,7 @@ function Run-AgentInstallUtility {
     if (-not (Test-Path $exportDir)) {
         New-Item -Path $exportDir -ItemType Directory | Out-Null
     }
-
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-    $hostname = $env:COMPUTERNAME
-    $csvLogFile = "$exportDir\AgentMaintenance-$timestamp-$hostname.csv"
-    $textLogFile = "$exportDir\AgentMaintenance-FullOutput-$timestamp-$hostname.txt"
-
-    Start-Transcript -Path $textLogFile -Append -Force
-    $log = @()
-
-    function Write-Log {
-        param ([string]$action, [string]$target, [string]$result)
-        $entry = [PSCustomObject]@{
-            Timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-            Action    = $action
-            Target    = $target
-            Result    = $result
-        }
-        $global:log += $entry
-    }
-
-    function Run-Uninstall {
-        $uninstallPath = "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat"
-        if (Test-Path $uninstallPath) {
-            try {
-                $scriptContents = Get-Content $uninstallPath -Raw
-                Write-Host "`n=== Contents of uninstall.bat ===" -ForegroundColor Cyan
-                Write-Host $scriptContents -ForegroundColor Gray
-
-                $backupPath = "$exportDir\UninstallScriptBackup-$timestamp-$hostname.txt"
-                $scriptContents | Out-File -FilePath $backupPath -Encoding UTF8
-                Write-Host "`nUninstall script backed up to: $backupPath" -ForegroundColor Green
-                Write-Log "ReadFile" "uninstall.bat" "Success"
-                Write-Log "ExportFile" "uninstall.bat Backup" "Saved"
-
-                Write-Host "`nRunning uninstall.bat inside PowerShell..." -ForegroundColor Cyan
-                cmd /c `"$uninstallPath`"
-                if ($LASTEXITCODE -eq 0) {
-                    Write-Host "Uninstall completed successfully." -ForegroundColor Green
-                    Write-Log "Uninstall" "Agent" "Success"
-                } else {
-                    Write-Host "Uninstall exited with code $LASTEXITCODE." -ForegroundColor Yellow
-                    Write-Log "Uninstall" "Agent" "ExitCode: $LASTEXITCODE"
-                }
-            } catch {
-                Write-Host "Failed to run uninstall: $_" -ForegroundColor Red
-                Write-Log "Uninstall" "Agent" "Failed"
-            }
-        } else {
-            Write-Host "`nUninstall script not found. Skipping..." -ForegroundColor Yellow
-            Write-Log "Uninstall" "Agent" "NotFound"
-        }
-    }
-
-    function Run-Install {
-        $companyId = Read-Host "Enter Company ID"
-        $tenantId  = Read-Host "Enter Tenant ID"
-        $secretKey = Read-Host "Enter Secret Key"
-
-        $installCmd = ".\cybercnsagent.exe -c $companyId -e $tenantId -j $secretKey -i"
-        Write-Host "`nGenerated command:" -ForegroundColor Cyan
-        Write-Host $installCmd -ForegroundColor Yellow
-
-        $confirm = Read-Host "`nDo you want to run this command? (Y/N)"
-        if ($confirm -notmatch '^[Yy]$') {
-            Write-Host "Installation cancelled by user." -ForegroundColor Red
-            Write-Log "Install" "Agent" "Cancelled"
-            return
-        }
-
-        if (-not (Test-Path ".\cybercnsagent.exe")) {
-            Write-Host "`nDownloading cybercnsagent.exe..." -ForegroundColor Cyan
-            try {
-                Invoke-WebRequest -Uri "https://agentv3.myconnectsecure.com/cybercnsagent.exe" -OutFile ".\cybercnsagent.exe" -UseBasicParsing
-                Write-Host "Download completed." -ForegroundColor Green
-                Write-Log "Download" "cybercnsagent.exe" "Success"
-            } catch {
-                Write-Host "Download failed: $_" -ForegroundColor Red
-                Write-Log "Download" "cybercnsagent.exe" "Failed"
-                return
-            }
-        }
-
-        Write-Host "`nRunning agent installer inside PowerShell..." -ForegroundColor Cyan
-        cmd /c $installCmd
-
-        if ($LASTEXITCODE -eq 0 -and (Test-Path "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat")) {
-            Write-Host "Agent installation appears successful." -ForegroundColor Green
-            Write-Log "Install" "Agent" "Success"
-        } else {
-            Write-Host "Agent install did not complete as expected (Exit Code: $LASTEXITCODE)." -ForegroundColor Red
-            Write-Log "Install" "Agent" "Failed (ExitCode: $LASTEXITCODE)"
-        }
-    }
-
-    Clear-Host
-    Write-Host "`nWindows Agent Install Tool V1" -ForegroundColor Cyan
-    Write-Host "==================================="
-
-    Write-Host "`nSelect an option:"
-    Write-Host "1. Install Agent"
-    Write-Host "2. Uninstall Agent"
-    Write-Host "3. Reinstall Agent"
-    $choice = Read-Host "Enter option number (1/2/3)"
-    switch ($choice) {
-        "1" {
-            Write-Log "UserAction" "Selection" "Install"
-            Run-Install
-        }
-        "2" {
-            Write-Log "UserAction" "Selection" "Uninstall"
-            Run-Uninstall
-        }
-        "3" {
-            Write-Log "UserAction" "Selection" "Reinstall"
-            Run-Uninstall
-            Run-Install
-        }
-        Default {
-            Write-Host "Invalid selection. Exiting." -ForegroundColor Red
-            Write-Log "UserAction" "Selection" "Invalid"
-        }
-    }
-
-    $log | Export-Csv -Path $csvLogFile -NoTypeInformation -Encoding UTF8
-    Stop-Transcript
-    Write-Host "`nAgent maintenance actions saved to:" -ForegroundColor Green
-    Write-Host "$csvLogFile" -ForegroundColor White
-    Write-Host "Full output log saved to:" -ForegroundColor Green
-    Write-Host "$textLogFile" -ForegroundColor White
-}
-
-$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $hostname = $env:COMPUTERNAME
     $csvLogFile = "$exportDir\AgentMaintenance-$timestamp-$hostname.csv"
     $textLogFile = "$exportDir\AgentMaintenance-FullOutput-$timestamp-$hostname.txt"
@@ -413,3 +282,73 @@ function Start-Tool {
 }
 
 Start-Tool
+
+function Run-AgentInstall {
+    $companyId = Read-Host "Enter Company ID"
+    $tenantId  = Read-Host "Enter Tenant ID"
+    $secretKey = Read-Host "Enter Secret Key"
+    $installCmd = ".\cybercnsagent.exe -c $companyId -e $tenantId -j $secretKey -i"
+    Write-Host "`nGenerated command:" -ForegroundColor Cyan
+    Write-Host $installCmd -ForegroundColor Yellow
+    $confirm = Read-Host "`nDo you want to run this command? (Y/N)"
+    if ($confirm -notmatch '^[Yy]$') {
+        Write-Host "Installation cancelled by user." -ForegroundColor Red
+        Write-Log "Install" "Agent" "Cancelled"
+        return
+    }
+    if (-not (Test-Path ".\cybercnsagent.exe")) {
+        Write-Host "`nDownloading cybercnsagent.exe..." -ForegroundColor Cyan
+        try {
+            Invoke-WebRequest -Uri "https://agentv3.myconnectsecure.com/cybercnsagent.exe" -OutFile ".\cybercnsagent.exe" -UseBasicParsing
+            Write-Host "Download completed." -ForegroundColor Green
+            Write-Log "Download" "cybercnsagent.exe" "Success"
+        } catch {
+            Write-Host "Download failed: $_" -ForegroundColor Red
+            Write-Log "Download" "cybercnsagent.exe" "Failed"
+            return
+        }
+    }
+    Write-Host "`nRunning agent installer inside PowerShell..." -ForegroundColor Cyan
+    cmd /c $installCmd
+    if ($LASTEXITCODE -eq 0 -and (Test-Path "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat")) {
+        Write-Host "Agent installation appears successful." -ForegroundColor Green
+        Write-Log "Install" "Agent" "Success"
+    } else {
+        Write-Host "Agent install did not complete as expected (Exit Code: $LASTEXITCODE)." -ForegroundColor Red
+        Write-Log "Install" "Agent" "Failed (ExitCode: $LASTEXITCODE)"
+    }
+}
+
+function Run-AgentUninstall {
+    $uninstallPath = "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat"
+    if (Test-Path $uninstallPath) {
+        try {
+            $scriptContents = Get-Content $uninstallPath -Raw
+            Write-Host "`n=== Contents of uninstall.bat ===" -ForegroundColor Cyan
+            Write-Host $scriptContents -ForegroundColor Gray
+            $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+            $hostname = $env:COMPUTERNAME
+            $exportDir = "C:\Script-Export"
+            $backupPath = "$exportDir\UninstallScriptBackup-$timestamp-$hostname.txt"
+            $scriptContents | Out-File -FilePath $backupPath -Encoding UTF8
+            Write-Host "`nUninstall script backed up to: $backupPath" -ForegroundColor Green
+            Write-Log "ReadFile" "uninstall.bat" "Success"
+            Write-Log "ExportFile" "uninstall.bat Backup" "Saved"
+            Write-Host "`nRunning uninstall.bat inside PowerShell..." -ForegroundColor Cyan
+            cmd /c `"$uninstallPath`"
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "Uninstall completed successfully." -ForegroundColor Green
+                Write-Log "Uninstall" "Agent" "Success"
+            } else {
+                Write-Host "Uninstall exited with code $LASTEXITCODE." -ForegroundColor Yellow
+                Write-Log "Uninstall" "Agent" "ExitCode: $LASTEXITCODE"
+            }
+        } catch {
+            Write-Host "Failed to run uninstall: $_" -ForegroundColor Red
+            Write-Log "Uninstall" "Agent" "Failed"
+        }
+    } else {
+        Write-Host "`nUninstall script not found. Skipping..." -ForegroundColor Yellow
+        Write-Log "Uninstall" "Agent" "NotFound"
+    }
+}
