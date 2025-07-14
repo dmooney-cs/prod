@@ -206,23 +206,6 @@ function Purge-ScriptData {
     Write-Host "Press Enter to exit..."; Read-Host | Out-Null; exit
 }
 
-function Start-Tool {
-    do {
-        Show-MainMenu
-        $choice = Read-Host "Enter your choice"
-        Run-SelectedOption -choice $choice
-        if ($choice -ne "Q") {
-            Write-Host "`nPress Enter to return to menu..."
-            Read-Host | Out-Null
-        }
-        Clear-Host
-    } while ($choice.ToUpper() -ne "Q")
-}
-
-Start-Tool
-
-
-
 function Run-WindowsPatchDetails {
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
@@ -319,3 +302,21 @@ function Run-WindowsPatchDetails {
     Write-Host "`nPatch collection complete." -ForegroundColor Magenta
     Read-Host -Prompt "Press Enter to return"
 }
+
+function Start-Tool {
+    do {
+        Show-MainMenu
+        $choice = Read-Host "Enter your choice"
+        Run-SelectedOption -choice $choice
+        if ($choice -ne "Q") {
+            Write-Host "`nPress Enter to return to menu..."
+            Read-Host | Out-Null
+        }
+        Clear-Host
+    } while ($choice.ToUpper() -ne "Q")
+}
+
+Start-Tool
+
+
+
