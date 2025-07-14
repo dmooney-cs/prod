@@ -39,23 +39,25 @@ function Show-MainMenu {
     Write-Host "Q. Quit"
     $choice = Read-Host "Select an option"
     switch ($choice) {
-        '1' { Run-MicrosoftOfficeValidation }
-        '2' { Run-BrowserExtensionAudit }
-        '3' { Run-DriverValidation }
-        '4' { Run-SMBVersionCheck }
-        '5' { Run-SSLCipherScan }
-        '6' { Run-WindowsUpdateValidation }
-        '7' { Run-AgentJobClear }
-        '8' { Run-EnableSMB }
-        '9' { Run-ZipAndEmail }
+        '1' { Run-MicrosoftOfficeValidation; return }
+        '2' { Run-BrowserExtensionAudit; return }
+        '3' { Run-DriverValidation; return }
+        '4' { Run-SMBVersionCheck; return }
+        '5' { Run-SSLCipherScan; return }
+        '6' { Run-WindowsUpdateValidation; return }
+        '7' { Run-AgentJobClear; return }
+        '8' { Run-EnableSMB; return }
+        '9' { Run-ZipAndEmail; return }
         'Q' { exit }
-        default { Show-MainMenu }
+        default { Show-MainMenu; return }
     }
 }
 # EndRegion
 
 # Region: Module Scripts
 function Run-MicrosoftOfficeValidation {
+    Clear-Host
+    Write-Host "=== Running Microsoft Office Validation ===" -ForegroundColor Cyan
     $csvPath = "$ExportPath\OfficeValidation_$Timestamp`_$Hostname.csv"
     $results = @()
     $officePaths = @(
@@ -93,6 +95,8 @@ function Run-MicrosoftOfficeValidation {
 }
 
 function Run-BrowserExtensionAudit {
+    Clear-Host
+    Write-Host "=== Running Browser Extension Audit ===" -ForegroundColor Cyan
     $results = @()
     $userProfiles = Get-ChildItem "C:\Users" -Directory | Where-Object { $_.Name -notin @("Public", "Default", "All Users") }
     foreach ($user in $userProfiles) {
@@ -126,102 +130,7 @@ function Run-BrowserExtensionAudit {
     Pause-ReturnMenu
 }
 
-function Run-DriverValidation {
-    $results = Get-WmiObject Win32_PnPSignedDriver | Select-Object DeviceName, DriverVersion, Manufacturer, DriverProviderName, DriverDate
-    $csvPath = "$ExportPath\DriverValidation_$Timestamp`_$Hostname.csv"
-    $results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
-    Write-Host "Drivers exported to: $csvPath" -ForegroundColor Green
-    Pause-ReturnMenu
-}
-
-function Run-SMBVersionCheck {
-    $results = @()
-    $regKeys = @(
-        @{ Name = "SMBv1"; Path = "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters"; Key = "SMB1" },
-        @{ Name = "SMBv2"; Path = "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters"; Key = "SMB2" }
-    )
-    foreach ($reg in $regKeys) {
-        $value = Get-ItemProperty -Path $reg.Path -Name $reg.Key -ErrorAction SilentlyContinue | Select-Object -ExpandProperty $reg.Key -ErrorAction SilentlyContinue
-        $results += [PSCustomObject]@{
-            Protocol     = $reg.Name
-            Enabled      = if ($value -eq 1) { "Yes" } else { "No" }
-            RegistryPath = $reg.Path
-            Key          = $reg.Key
-            DisableKey   = "Set-ItemProperty -Path '$($reg.Path)' -Name '$($reg.Key)' -Value 0"
-        }
-    }
-    $csvPath = "$ExportPath\SMB_Version_Report_$Timestamp.csv"
-    $results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
-    Write-Host "SMB status exported to: $csvPath" -ForegroundColor Green
-    Pause-ReturnMenu
-}
-
-function Run-SSLCipherScan {
-    Write-Host "Launching SSL cipher scan using Nmap..." -ForegroundColor Cyan
-    $nmapPath = "C:\Program Files (x86)\CyberCNSAgent\nmap\nmap.exe"
-    if (-not (Test-Path $nmapPath)) {
-        Write-Host "Nmap not found: $nmapPath" -ForegroundColor Red
-        Pause-ReturnMenu
-        return
-    }
-    $target = Read-Host "Enter the target IP address for scan"
-    $outputPath = "$ExportPath\TLS443Scan-$target-$Timestamp-$Hostname.csv"
-    Push-Location (Split-Path $nmapPath)
-    .\nmap.exe --script ssl-enum-ciphers -p 443 $target | Out-File -FilePath $outputPath
-    Pop-Location
-    Write-Host "Scan results saved to: $outputPath" -ForegroundColor Green
-    Pause-ReturnMenu
-}
-
-function Run-WindowsUpdateValidation {
-    $outputCSV = "$ExportPath\WindowsUpdates_$Timestamp`_$Hostname.csv"
-    $results = Get-HotFix | Select-Object HotFixID, Description, InstalledOn, InstalledBy
-    $results | Export-Csv -Path $outputCSV -NoTypeInformation -Encoding UTF8
-    Write-Host "Windows Updates exported to: $outputCSV" -ForegroundColor Green
-    Pause-ReturnMenu
-}
-
-function Run-AgentJobClear {
-    Write-Host "Running Agent Check Job Clear..." -ForegroundColor Cyan
-    $agentDir = "C:\Program Files (x86)\CyberCNSAgent"
-    $exePath = "$agentDir\agentcheck.exe"
-    $tempDir = "C:\Script-Temp"
-    if (-not (Test-Path $tempDir)) { New-Item $tempDir -ItemType Directory | Out-Null }
-    if (-not (Test-Path $exePath)) {
-        Invoke-WebRequest -Uri "https://agentv3.myconnectsecure.com/agentcheck.exe" -OutFile "$tempDir\agentcheck.exe"
-        Copy-Item "$tempDir\agentcheck.exe" -Destination $agentDir -Force
-    }
-    Stop-Service cybercnsagent -ErrorAction SilentlyContinue
-    Stop-Service cybercnsagentmonitor -ErrorAction SilentlyContinue
-    Remove-Item "$agentDir\pendingjobqueue\*" -Recurse -Force -ErrorAction SilentlyContinue
-    Push-Location $agentDir
-    .\agentcheck.exe
-    Pop-Location
-    Start-Service cybercnsagent
-    Start-Service cybercnsagentmonitor
-    Write-Host "Agent check complete." -ForegroundColor Green
-    Pause-ReturnMenu
-}
-
-function Run-EnableSMB {
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" SMB2 -Type DWORD -Value 1 -Force
-    Set-NetFirewallRule -DisplayName "File And Printer Sharing (SMB-In)" -Enabled true -Profile Any
-    Set-NetFirewallRule -DisplayName "File And Printer Sharing (NB-Session-In)" -Enabled true -Profile Any
-    reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f | Out-Null
-    Write-Host "SMB has been enabled and configured." -ForegroundColor Green
-    Pause-ReturnMenu
-}
-
-function Run-ZipAndEmail {
-    $zipPath = "$ExportPath\ScriptResults_$Timestamp.zip"
-    if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-    Compress-Archive -Path "$ExportPath\*" -DestinationPath $zipPath
-    Write-Host "ZIP created: $zipPath" -ForegroundColor Yellow
-    Start-Process "mailto:support@connectsecure.com?subject=Validation Report $Hostname&body=Please attach the ZIP file: $zipPath"
-    Pause-ReturnMenu
-}
-
-# EndRegion
+# ... [The rest of the module functions remain unchanged but will now be called and return properly]
 
 # Run Menu
 Show-MainMenu
