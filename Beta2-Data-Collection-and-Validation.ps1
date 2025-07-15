@@ -139,16 +139,6 @@ function Run-WindowsPatchDetails {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# --- Setup ===
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$shortDate = Get-Date -Format "yyyy-MM-dd"
-$shortTime = Get-Date -Format "HHmm"
-$hostname = $env:COMPUTERNAME
-$exportDir = "C:\Script-Export"
-if (-not (Test-Path $exportDir)) { New-Item -Path $exportDir -ItemType Directory | Out-Null }
-$logFile = "$exportDir\$hostname-AgentMaintenaceScriptLog-$shortDate-$shortTime.txt"
-Start-Transcript -Path $logFile -Append
-
 # === Agent Install and Uninstall Functions ===
 function Run-Install {
     $companyId = Read-Host "Enter Company ID"
@@ -203,7 +193,7 @@ function Start-Tool {
                 Write-Host "`nFeatures still under development. Will function when released." -ForegroundColor Yellow
                 Start-Sleep -Seconds 2  # Wait for 2 seconds to show the message
             }
-            "3" { Show-AgentInstallToolMenu }
+            "3" { Run-Install }
             "4" { Show-ZipAndEmailMenu }  # Added Zip and Email option
             "Q" { 
                 Write-Host "Purging script data..." -ForegroundColor Red
