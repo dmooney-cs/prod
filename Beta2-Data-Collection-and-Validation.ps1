@@ -39,7 +39,7 @@ function Run-ValidationScripts {
     } while ($true)
 }
 
-# === Office Validation ===
+# --- Office Validation ---
 function Run-OfficeValidation {
     Write-Host "`nRunning Office Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -52,7 +52,7 @@ function Run-OfficeValidation {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# === Driver Validation ===
+# --- Driver Validation ---
 function Run-DriverValidation {
     Write-Host "`nRunning Driver Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -63,7 +63,7 @@ function Run-DriverValidation {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# === Roaming Profile Validation ===
+# --- Roaming Profile Validation ---
 function Run-RoamingProfileValidation {
     Write-Host "`nRunning Roaming Profile Applications Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -87,7 +87,7 @@ function Run-RoamingProfileValidation {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# === Browser Extension Details ===
+# --- Browser Extension Details ---
 function Run-BrowserExtensionDetails {
     Write-Host "`nRunning Browser Extension Details Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -100,7 +100,7 @@ function Run-BrowserExtensionDetails {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# === OSQuery Browser Extensions ===
+# --- OSQuery Browser Extensions ---
 function Run-OSQueryBrowserExtensions {
     Write-Host "`nRunning OSQuery Browser Extensions Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -113,7 +113,7 @@ function Run-OSQueryBrowserExtensions {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# === SSL Cipher Validation ===
+# --- SSL Cipher Validation ---
 function Run-SSLCipherValidation {
     Write-Host "`nRunning SSL Cipher Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -126,7 +126,7 @@ function Run-SSLCipherValidation {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# === Windows Patch Details ===
+# --- Windows Patch Details ---
 function Run-WindowsPatchDetails {
     Write-Host "`nRunning Windows Patch Details Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
