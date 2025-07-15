@@ -4,27 +4,27 @@
 function Show-MainMenu {
     Clear-Host
     Write-Host "======== Data Collection and Validation Tool ========" -ForegroundColor Cyan
-    Write-Host "1. Validation Scripts"
-    Write-Host "2. Agent Maintenance"
-    Write-Host "3. Probe Troubleshooting"
-    Write-Host "4. Zip and Email Results"
-    Write-Host "Q. Close and Purge Script Data"
+    Write-Host "1. Validation Scripts" -ForegroundColor White
+    Write-Host "2. Probe Troubleshooting" -ForegroundColor White
+    Write-Host "3. Agent Install Tool" -ForegroundColor White
+    Write-Host "4. Zip and Email Results" -ForegroundColor White
+    Write-Host "Q. Close and Purge Script Data" -ForegroundColor White
 }
 
 # Function to show the Validation Scripts menu
 function Run-ValidationScripts {
     do {
         Write-Host "`n---- Validation Scripts Menu ----" -ForegroundColor Cyan
-        Write-Host "1. Microsoft Office Validation"
-        Write-Host "2. Driver Validation"
-        Write-Host "3. Roaming Profile Applications"
-        Write-Host "4. Browser Extension Details"
-        Write-Host "5. OSQuery Browser Extensions"
-        Write-Host "6. SSL Cipher Validation"
-        Write-Host "7. Windows Patch Details"
-        Write-Host "8. Back to Main Menu"
+        Write-Host "1. Microsoft Office Validation" -ForegroundColor White
+        Write-Host "2. Driver Validation" -ForegroundColor White
+        Write-Host "3. Roaming Profile Applications" -ForegroundColor White
+        Write-Host "4. Browser Extension Details" -ForegroundColor White
+        Write-Host "5. OSQuery Browser Extensions" -ForegroundColor White
+        Write-Host "6. SSL Cipher Validation" -ForegroundColor White
+        Write-Host "7. Windows Patch Details" -ForegroundColor White
+        Write-Host "8. Back to Main Menu" -ForegroundColor White
         $valChoice = Read-Host "Select an option"
-
+        
         switch ($valChoice) {
             "1" { Run-OfficeValidation }
             "2" { Run-DriverValidation }
@@ -39,245 +39,207 @@ function Run-ValidationScripts {
     } while ($true)
 }
 
-# Agent Maintenance Submenu
-function Run-AgentMaintenanceMenu {
-    do {
-        Write-Host "`n---- Agent Maintenance Menu ----" -ForegroundColor Cyan
-        Write-Host "1. Agent Install Tool"
-        Write-Host "2. Check SMB"
-        Write-Host "3. Set SMB"
-        Write-Host "4. Clear Pending Jobs"
-        Write-Host "5. Back to Main Menu"
-        $agentChoice = Read-Host "Select an option"
-
-        switch ($agentChoice) {
-            "1" { Run-AgentInstallTool }
-            "2" { Run-CheckSMB }
-            "3" { Run-SetSMB }
-            "4" { Run-ClearPendingJobs }
-            "5" { return }
-            default { Write-Host "Invalid option." -ForegroundColor Red }
-        }
-    } while ($true)
+# === Agent Install Tool ===
+function Show-AgentInstallToolMenu {
+    Write-Host "`nRunning the Agent Install Tool..." -ForegroundColor Cyan
+    Run-Install
 }
 
-# Office Validation
-function Run-OfficeValidation {
-    $appFilter = Read-Host "Enter a keyword to filter applications (or press Enter to list all)"
-    $results = @()
-    $regPaths = @(
-        "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
-        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
-    )
-    foreach ($path in $regPaths) {
-        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | ForEach-Object {
-            if ($_.DisplayName -and ($appFilter -eq "" -or $_.DisplayName -like "*$appFilter*")) {
-                $results += [PSCustomObject]@{
-                    Name = $_.DisplayName
-                    Version = $_.DisplayVersion
-                    Publisher = $_.Publisher
-                    InstallLocation = $_.InstallLocation
-                    InstallDate = $_.InstallDate
-                    Source = "Registry"
-                }
-            }
-        }
+# --- Agent Install Code from provided example ---
+function Run-Install {
+    $companyId = Read-Host "Enter Company ID"
+    $tenantId  = Read-Host "Enter Tenant ID"
+    $secretKey = Read-Host "Enter Secret Key"
+
+    Write-Host "`nUsing TLS 1.2 for secure agent link download..." -ForegroundColor Cyan
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    Write-Host "Fetching agent download URL from ConnectSecure API..." -ForegroundColor Cyan
+    try {
+        $source = Invoke-RestMethod -Method "Get" -Uri "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
+    } catch {
+        Write-Host "Failed to retrieve download URL: $_" -ForegroundColor Red
+        return
     }
-    Get-AppxPackage | ForEach-Object {
-        if ($appFilter -eq "" -or $_.Name -like "*$appFilter*") {
-            $results += [PSCustomObject]@{
-                Name = $_.Name
-                Version = $_.Version
-                Publisher = $_.Publisher
-                InstallLocation = $_.InstallLocation
-                InstallDate = "N/A"
-                Source = "Microsoft Store"
-            }
-        }
+
+    $downloadDir = "C:\Script-Temp"
+    if (-not (Test-Path $downloadDir)) {
+        New-Item -Path $downloadDir -ItemType Directory | Out-Null
     }
-    $teamsPaths = Get-ChildItem "C:\Users\*\AppData\Local\Microsoft\Teams\Teams.exe" -Recurse -ErrorAction SilentlyContinue
-    foreach ($teamsPath in $teamsPaths) {
-        $results += [PSCustomObject]@{
-            Name = 'Microsoft Teams'
-            Version = (Get-Item $teamsPath.FullName).VersionInfo.FileVersion
-            Publisher = 'Microsoft'
-            InstallLocation = $teamsPath.DirectoryName
-            InstallDate = "N/A"
-            Source = "Teams"
-        }
+
+    $destination = Join-Path $downloadDir "cybercnsagent.exe"
+
+    Write-Host "Downloading agent to $destination" -ForegroundColor Cyan
+    try {
+        Invoke-WebRequest -Uri $source -OutFile $destination -UseBasicParsing
+        Write-Host "Agent downloaded successfully." -ForegroundColor Green
+    } catch {
+        Write-Host "Failed to download agent: $_" -ForegroundColor Red
+        return
     }
-    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $hostname = $env:COMPUTERNAME
-    $path = "C:\Script-Export"
-    if (-not (Test-Path $path)) { New-Item $path -ItemType Directory | Out-Null }
-    $file = "$path\OfficeApps-$timestamp-$hostname.csv"
-    $results | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
-    Write-Host "Exported to: $file" -ForegroundColor Green
+
+    $installCmd = "$destination -c $companyId -e $tenantId -j $secretKey -i"
+    Write-Host "`nExecuting: $installCmd" -ForegroundColor Yellow
+    Start-Sleep -Seconds 5
+
+    cmd /c $installCmd
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Agent installation completed successfully." -ForegroundColor Green
+    } else {
+        Write-Host "Agent installation failed (Exit Code: $LASTEXITCODE)." -ForegroundColor Red
+    }
+
+    # Final prompt to exit after installation
+    Read-Host -Prompt "`nPress any key to exit"
 }
 
-# Driver Validation
-function Run-DriverValidation {
-    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $hostname = $env:COMPUTERNAME
-    $exportPath = "C:\Script-Export\Installed_Drivers_${hostname}_$timestamp.csv"
-    $drivers = Get-WmiObject Win32_PnPSignedDriver | Sort-Object DeviceName
-    $driverInfo = $drivers | Select-Object `DeviceName, DeviceID, DriverVersion, DriverProviderName, InfName, 
-        @{Name="DriverDate";Expression={if ($_.DriverDate) {[datetime]::ParseExact($_.DriverDate, 'yyyyMMddHHmmss.000000+000', $null)} else { $null }}} ,
-        Manufacturer, DriverPath
-    $driverInfo | Export-Csv -Path $exportPath -NoTypeInformation -Encoding UTF8
-    Write-Host "Exported to: $exportPath" -ForegroundColor Green
+# --- Zip and Email Results ---
+function Show-ZipAndEmailMenu {
+    Run-ZipAndEmailResults
 }
 
-# Agent - Install Tool
-function Run-AgentInstallTool {
-    $agentDir = "C:\Program Files (x86)\CyberCNSAgent"
-    $tempDir = "C:\Script-Temp"
-    $exportDir = "C:\Script-Export"
-    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $hostname = $env:COMPUTERNAME
-    $logFile = "$exportDir\AgentInstallLog-$timestamp-$hostname.csv"
-    $transcriptFile = "$exportDir\AgentInstallTranscript-$timestamp-$hostname.txt"
-
-    if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory | Out-Null }
-    if (-not (Test-Path $exportDir)) { New-Item -Path $exportDir -ItemType Directory | Out-Null }
-
-    Start-Transcript -Path $transcriptFile -Force
-
-    if (Test-Path "$agentDir\uninstall.bat") {
-        $reinstall = Read-Host "Agent detected. Would you like to Re-Install it? (Y/N)"
-        if ($reinstall -notin @("Y", "y")) {
-            Write-Host "Install aborted."
-            Stop-Transcript
-            return
-        }
-        Write-Host "Uninstalling existing agent..."
-        & "$agentDir\uninstall.bat"
-        Start-Sleep -Seconds 5
-    }
-
-    $company = Read-Host "Enter Company ID"
-    $tenant = Read-Host "Enter Tenant ID"
-    $secret = Read-Host "Enter Secret Key"
-
-    $url = "https://downloads.myconnectsecure.com/agent/windows/cybercnsagent.exe"
-    $installer = "$tempDir\cybercnsagent.exe"
-    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
-
-    $cmd = "& `"$installer`" -c $company -e $tenant -j $secret -i"
-    Write-Host "`nRunning: $cmd"
-    Invoke-Expression $cmd
-
-    Stop-Transcript
-    Write-Host "`n✅ Agent Install Tool completed." -ForegroundColor Green
-    Write-Host "Transcript: $transcriptFile" -ForegroundColor Cyan
-    Write-Host "Log file: $logFile" -ForegroundColor Cyan
-    Read-Host "Press ENTER to return..."
-}
-
-# Agent - Check SMB
-function Run-CheckSMB {
-    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $hostname = $env:COMPUTERNAME
-    $exportFile = "C:\Script-Export\SMB_Version_Report_$timestamp-$hostname.csv"
-
-    $results = @()
-    $checkKeys = @{
-        "SMB1" = "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters\SMB1"
-        "SMB2" = "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters\SMB2"
-        "SMB3" = "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters\EnableSecuritySignature"
-    }
-
-    foreach ($key in $checkKeys.Keys) {
-        $enabled = try { (Get-ItemProperty -Path ($checkKeys[$key]) -ErrorAction Stop)."(default)" } catch { "Not Found" }
-        $disableKey = "Use Disable-$key via registry to disable"
-        $results += [PSCustomObject]@{
-            Protocol = $key
-            Enabled = $enabled
-            DisableKey = $disableKey
-        }
-    }
-
-    $results | Export-Csv -Path $exportFile -NoTypeInformation
-    Write-Host "✅ SMB status exported to: $exportFile" -ForegroundColor Green
-    Read-Host "Press ENTER to return..."
-}
-
-# Agent - Set SMB
-function Run-SetSMB {
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters" SMB2 -Type DWORD -Value 1 -Force
-    Set-NetFirewallRule -DisplayName "File And Printer Sharing (SMB-In)" -Enabled True -Profile Any
-    Set-NetFirewallRule -DisplayName "File And Printer Sharing (NB-Session-In)" -Enabled True -Profile Any
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "LocalAccountTokenFilterPolicy" -Value 1 -Type DWord -Force
-
-    Write-Host "`n✅ SMB2 and firewall rules configured. Token policy enabled." -ForegroundColor Green
-    Read-Host "Press ENTER to return..."
-}
-
-# Agent - Clear Jobs
-function Run-ClearPendingJobs {
-    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $hostname = $env:COMPUTERNAME
-    $tempDir = "C:\Script-Temp"
-    $exportDir = "C:\Script-Export"
-    $transcriptFile = "$exportDir\AgentCheck-FullOutput-$timestamp-$hostname.txt"
-    $summaryLog = "$exportDir\AgentCheck-Summary-$timestamp-$hostname.csv"
-
-    if (-not (Test-Path $tempDir)) { New-Item -Path $tempDir -ItemType Directory | Out-Null }
-    if (-not (Test-Path $exportDir)) { New-Item -Path $exportDir -ItemType Directory | Out-Null }
-
-    Start-Transcript -Path $transcriptFile -Force
-
-    $url = "https://agentv3.myconnectsecure.com/agentcheck.exe"
-    $toolPath = "$tempDir\agentcheck.exe"
-    Invoke-WebRequest -Uri $url -OutFile $toolPath -UseBasicParsing
-
-    Stop-Service cybercnsagent -Force
-    Stop-Service cybercnsagentmonitor -Force
-
-    $pendingDir = "C:\Program Files (x86)\CyberCNSAgent\pendingjobqueue"
-    if (Test-Path $pendingDir) {
-        Get-ChildItem -Path $pendingDir -Recurse | Remove-Item -Force -Recurse
-    }
-
-    Set-Location "C:\Program Files (x86)\CyberCNSAgent"
-    & ".\agentcheck.exe"
-
-    Start-Service cybercnsagent
-    Start-Service cybercnsagentmonitor
-
-    Stop-Transcript
-    Write-Host "`n✅ AgentCheck complete." -ForegroundColor Green
-    Write-Host "Transcript: $transcriptFile" -ForegroundColor Cyan
-    Write-Host "Summary log: $summaryLog" -ForegroundColor Cyan
-    Read-Host "Press ENTER to return..."
-}
-
-# Zip and Email Results
 function Run-ZipAndEmailResults {
-    # (unchanged from prior working version)
-    # [intentionally omitted here to save space — it's already included above and working]
+    # Set up folder and output paths
+    $exportFolder = "C:\Script-Export"
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $zipFilePath = "$exportFolder\ScriptExport_${hostname}_$timestamp.zip"
+
+    # Ensure export folder exists
+    if (-not (Test-Path $exportFolder)) {
+        Write-Host "Folder '$exportFolder' not found. Exiting..." -ForegroundColor Red
+        exit
+    }
+
+    # Get all files recursively
+    $allFiles = Get-ChildItem -Path $exportFolder -Recurse -File
+    if ($allFiles.Count -eq 0) {
+        Write-Host "No files found in '$exportFolder'. Exiting..." -ForegroundColor Yellow
+        exit
+    }
+
+    # Display contents
+    Write-Host ""
+    Write-Host "=== Contents of $exportFolder ===" -ForegroundColor Cyan
+    $allFiles | ForEach-Object { Write-Host $_.FullName }
+
+    # Calculate total size before compression
+    $totalSizeMB = [math]::Round(($allFiles | Measure-Object Length -Sum).Sum / 1MB, 2)
+    Write-Host ""
+    Write-Host "Total size before compression: $totalSizeMB MB" -ForegroundColor Yellow
+
+    # Prompt to ZIP
+    $zipChoice = Read-Host "`nWould you like to zip the folder contents? (Y/N)"
+    if ($zipChoice -notin @('Y','y')) {
+        Write-Host "Zipping skipped. Exiting..." -ForegroundColor DarkGray
+        exit
+    }
+
+    # Remove old zip if exists
+    if (Test-Path $zipFilePath) { Remove-Item $zipFilePath -Force }
+
+    # Create ZIP
+    Compress-Archive -Path "$exportFolder\*" -DestinationPath $zipFilePath
+
+    # Get ZIP size
+    $zipSizeMB = [math]::Round((Get-Item $zipFilePath).Length / 1MB, 2)
+
+    # Show summary
+    Write-Host ""
+    Write-Host "=== ZIP Summary ===" -ForegroundColor Green
+    Write-Host "ZIP File: $zipFilePath"
+    Write-Host "Size after compression: $zipSizeMB MB" -ForegroundColor Yellow
+
+    # Prompt to email
+    $emailChoice = Read-Host "`nWould you like to email the ZIP file? (Y/N)"
+    if ($emailChoice -in @('Y','y')) {
+        $recipient = Read-Host "Enter recipient email address"
+        $subject = "Script Export from $hostname"
+        $body = "Attached is the export ZIP file from $hostname.`nZIP Path: $zipFilePath"
+
+        Write-Host "`nChecking for Outlook..." -ForegroundColor Cyan
+        $Outlook = $null
+        $OutlookWasRunning = $false
+
+        # Attempt to connect to Outlook (running or start new)
+        try {
+            $Outlook = [Runtime.InteropServices.Marshal]::GetActiveObject("Outlook.Application")
+            $OutlookWasRunning = $true
+        } catch {
+            try {
+                $Outlook = New-Object -ComObject Outlook.Application
+                $OutlookWasRunning = $false
+            } catch {
+                $Outlook = $null
+            }
+        }
+
+        if ($Outlook) {
+            try {
+                # Ensure MAPI session is open
+                $namespace = $Outlook.GetNamespace("MAPI")
+                $namespace.Logon($null, $null, $false, $true)
+
+                # Create and populate mail item
+                $Mail = $Outlook.CreateItem(0)
+                $Mail.To = $recipient
+                $Mail.Subject = $subject
+                $Mail.Body = $body
+
+                if (Test-Path $zipFilePath) {
+                    $Mail.Attachments.Add($zipFilePath)
+                } else {
+                    Write-Host "❌ ZIP file not found at $zipFilePath" -ForegroundColor Red
+                }
+
+                $Mail.Display()
+                Write-Host "`n✅ Outlook draft email opened with ZIP attached." -ForegroundColor Green
+            } catch {
+                Write-Host "❌ Outlook COM error: $($_.Exception.Message)" -ForegroundColor Red
+            }
+        } else {
+            Write-Host "`n⚠️ Outlook not available. Falling back to default mail client..." -ForegroundColor Yellow
+            $mailto = "mailto:$recipient`?subject=$([uri]::EscapeDataString($subject))&body=$([uri]::EscapeDataString($body))"
+            Start-Process $mailto
+            Write-Host ""
+            Write-Host "Please manually attach this file:" -ForegroundColor Cyan
+            Write-Host "$zipFilePath" -ForegroundColor White
+        }
+    } else {
+        Write-Host "Email skipped." -ForegroundColor DarkGray
+    }
+
+    Write-Host ""
+    Read-Host "Press ENTER to exit..."
 }
 
-# Main loop
+# Main function to start the tool
 function Start-Tool {
     do {
         Show-MainMenu
         $choice = Read-Host "Enter your choice"
-
+        
         switch ($choice.ToUpper()) {
             "1" { Run-ValidationScripts }
-            "2" { Run-AgentMaintenanceMenu }
-            "3" { Write-Host "[Placeholder] Probe Troubleshooting" }
-            "4" { Run-ZipAndEmailResults }
-            "Q" {
+            "2" { 
+                Write-Host "`nFeatures still under development. Will function when released." -ForegroundColor Yellow
+                Start-Sleep -Seconds 2  # Wait for 2 seconds to show the message
+            }
+            "3" { Show-AgentInstallToolMenu }
+            "4" { Show-ZipAndEmailMenu }  # Added Zip and Email option
+            "Q" { 
                 Write-Host "Purging script data..." -ForegroundColor Red
                 Remove-Item -Path "C:\Script-Export\*" -Recurse -Force
                 Write-Host "All files deleted from C:\Script-Export"
-                exit
+                exit 
+            }
+            default {
+                Write-Host "Invalid choice. Please select a valid option." -ForegroundColor Red
             }
         }
-    } while ($choice.ToUpper() -ne "Q")
+    } while ($true)
 }
 
+# Start the main tool
 Start-Tool
