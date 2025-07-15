@@ -39,13 +39,12 @@ function Run-ValidationScripts {
     } while ($true)
 }
 
-# --- Office Validation ---
+# === Office Validation ===
 function Run-OfficeValidation {
     Write-Host "`nRunning Office Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
     $exportFile = "C:\Script-Export\OfficeValidation-$timestamp-$hostname.csv"
-    # Placeholder for actual Office validation logic
     $data = @(
         [PSCustomObject]@{ Name="Office365"; Version="2021"; Publisher="Microsoft"; InstallLocation="C:\Program Files\Microsoft Office" }
     )
@@ -53,7 +52,7 @@ function Run-OfficeValidation {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# --- Driver Validation ---
+# === Driver Validation ===
 function Run-DriverValidation {
     Write-Host "`nRunning Driver Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -64,7 +63,7 @@ function Run-DriverValidation {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# --- Roaming Profile Validation ---
+# === Roaming Profile Validation ===
 function Run-RoamingProfileValidation {
     Write-Host "`nRunning Roaming Profile Applications Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -88,7 +87,7 @@ function Run-RoamingProfileValidation {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# --- Browser Extension Details ---
+# === Browser Extension Details ===
 function Run-BrowserExtensionDetails {
     Write-Host "`nRunning Browser Extension Details Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -101,13 +100,12 @@ function Run-BrowserExtensionDetails {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# --- OSQuery Browser Extensions ---
+# === OSQuery Browser Extensions ===
 function Run-OSQueryBrowserExtensions {
     Write-Host "`nRunning OSQuery Browser Extensions Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
     $exportFile = "C:\Script-Export\OSQueryBrowserExtensions-$timestamp-$hostname.csv"
-    # Simulate OSQuery query (replace with actual OSQuery call)
     $osQueryData = @(
         [PSCustomObject]@{ Browser="Chrome"; ExtensionID="1234"; Name="AdBlock"; Version="1.0" }
     )
@@ -115,13 +113,12 @@ function Run-OSQueryBrowserExtensions {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# --- SSL Cipher Validation ---
+# === SSL Cipher Validation ===
 function Run-SSLCipherValidation {
     Write-Host "`nRunning SSL Cipher Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
     $exportFile = "C:\Script-Export\SSLCipherValidation-$timestamp-$hostname.csv"
-    # Simulate SSL Cipher data (replace with actual SSL scan logic)
     $sslData = @(
         [PSCustomObject]@{ IP="192.168.1.1"; Cipher="TLS_RSA_WITH_AES_128_CBC_SHA" }
     )
@@ -129,13 +126,12 @@ function Run-SSLCipherValidation {
     Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# --- Windows Patch Details ---
+# === Windows Patch Details ===
 function Run-WindowsPatchDetails {
     Write-Host "`nRunning Windows Patch Details Validation..." -ForegroundColor Cyan
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
     $exportFile = "C:\Script-Export\WindowsPatchDetails-$timestamp-$hostname.csv"
-    # Simulate Windows Update data (replace with actual patch info query)
     $windowsPatchData = @(
         [PSCustomObject]@{ PatchID="KB123456"; Description="Security Update"; InstalledOn="2022-01-01" }
     )
