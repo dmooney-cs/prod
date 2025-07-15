@@ -39,18 +39,125 @@ function Run-ValidationScripts {
     } while ($true)
 }
 
-# === Agent Install Tool ===
-function Show-AgentInstallToolMenu {
-    Write-Host "`nRunning the Agent Install Tool..." -ForegroundColor Cyan
-    Run-Install
+# --- Office Validation ---
+function Run-OfficeValidation {
+    Write-Host "`nRunning Office Validation..." -ForegroundColor Cyan
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $exportFile = "C:\Script-Export\OfficeValidation-$timestamp-$hostname.csv"
+    # Placeholder for actual Office validation logic
+    $data = @(
+        [PSCustomObject]@{ Name="Office365"; Version="2021"; Publisher="Microsoft"; InstallLocation="C:\Program Files\Microsoft Office" }
+    )
+    $data | Export-Csv -Path $exportFile -NoTypeInformation
+    Write-Host "Exported results to: $exportFile" -ForegroundColor Green
 }
 
-# --- Agent Install Code from provided example ---
+# --- Driver Validation ---
+function Run-DriverValidation {
+    Write-Host "`nRunning Driver Validation..." -ForegroundColor Cyan
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $exportFile = "C:\Script-Export\DriverValidation-$timestamp-$hostname.csv"
+    $drivers = Get-WmiObject Win32_PnPSignedDriver | Select-Object DeviceName, DeviceID, DriverVersion, Manufacturer, DriverPath
+    $drivers | Export-Csv -Path $exportFile -NoTypeInformation
+    Write-Host "Exported results to: $exportFile" -ForegroundColor Green
+}
+
+# --- Roaming Profile Validation ---
+function Run-RoamingProfileValidation {
+    Write-Host "`nRunning Roaming Profile Applications Validation..." -ForegroundColor Cyan
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $exportFile = "C:\Script-Export\RoamingProfileValidation-$timestamp-$hostname.csv"
+    $profileData = @()
+    $userProfiles = Get-WmiObject -Class Win32_UserProfile | Where-Object { $_.Special -eq $false -and $_.LocalPath -ne $null }
+    foreach ($profile in $userProfiles) {
+        $profileName = $profile.LocalPath.Split('\')[-1]
+        $installedApps = Get-ChildItem "C:\Users\$profileName\AppData\Local" -Recurse -Directory
+        foreach ($app in $installedApps) {
+            $appData = [PSCustomObject]@{
+                ProfileName = $profileName
+                Application = $app.Name
+                Path        = $app.FullName
+            }
+            $profileData += $appData
+        }
+    }
+    $profileData | Export-Csv -Path $exportFile -NoTypeInformation
+    Write-Host "Exported results to: $exportFile" -ForegroundColor Green
+}
+
+# --- Browser Extension Details ---
+function Run-BrowserExtensionDetails {
+    Write-Host "`nRunning Browser Extension Details Validation..." -ForegroundColor Cyan
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $exportFile = "C:\Script-Export\BrowserExtensionDetails-$timestamp-$hostname.csv"
+    $browserExtensions = @()
+    $chromePath = "C:\Users\$hostname\AppData\Local\Google\Chrome\User Data\Default\Extensions"
+    $browserExtensions += Get-ChildItem -Path $chromePath -Directory | Select-Object Name
+    $browserExtensions | Export-Csv -Path $exportFile -NoTypeInformation
+    Write-Host "Exported results to: $exportFile" -ForegroundColor Green
+}
+
+# --- OSQuery Browser Extensions ---
+function Run-OSQueryBrowserExtensions {
+    Write-Host "`nRunning OSQuery Browser Extensions Validation..." -ForegroundColor Cyan
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $exportFile = "C:\Script-Export\OSQueryBrowserExtensions-$timestamp-$hostname.csv"
+    # Simulate OSQuery query (replace with actual OSQuery call)
+    $osQueryData = @(
+        [PSCustomObject]@{ Browser="Chrome"; ExtensionID="1234"; Name="AdBlock"; Version="1.0" }
+    )
+    $osQueryData | Export-Csv -Path $exportFile -NoTypeInformation
+    Write-Host "Exported results to: $exportFile" -ForegroundColor Green
+}
+
+# --- SSL Cipher Validation ---
+function Run-SSLCipherValidation {
+    Write-Host "`nRunning SSL Cipher Validation..." -ForegroundColor Cyan
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $exportFile = "C:\Script-Export\SSLCipherValidation-$timestamp-$hostname.csv"
+    # Simulate SSL Cipher data (replace with actual SSL scan logic)
+    $sslData = @(
+        [PSCustomObject]@{ IP="192.168.1.1"; Cipher="TLS_RSA_WITH_AES_128_CBC_SHA" }
+    )
+    $sslData | Export-Csv -Path $exportFile -NoTypeInformation
+    Write-Host "Exported results to: $exportFile" -ForegroundColor Green
+}
+
+# --- Windows Patch Details ---
+function Run-WindowsPatchDetails {
+    Write-Host "`nRunning Windows Patch Details Validation..." -ForegroundColor Cyan
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $exportFile = "C:\Script-Export\WindowsPatchDetails-$timestamp-$hostname.csv"
+    # Simulate Windows Update data (replace with actual patch info query)
+    $windowsPatchData = @(
+        [PSCustomObject]@{ PatchID="KB123456"; Description="Security Update"; InstalledOn="2022-01-01" }
+    )
+    $windowsPatchData | Export-Csv -Path $exportFile -NoTypeInformation
+    Write-Host "Exported results to: $exportFile" -ForegroundColor Green
+}
+
+# --- Setup ===
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$shortDate = Get-Date -Format "yyyy-MM-dd"
+$shortTime = Get-Date -Format "HHmm"
+$hostname = $env:COMPUTERNAME
+$exportDir = "C:\Script-Export"
+if (-not (Test-Path $exportDir)) { New-Item -Path $exportDir -ItemType Directory | Out-Null }
+$logFile = "$exportDir\$hostname-AgentMaintenaceScriptLog-$shortDate-$shortTime.txt"
+Start-Transcript -Path $logFile -Append
+
+# === Agent Install and Uninstall Functions ===
 function Run-Install {
     $companyId = Read-Host "Enter Company ID"
     $tenantId  = Read-Host "Enter Tenant ID"
     $secretKey = Read-Host "Enter Secret Key"
-
     Write-Host "`nUsing TLS 1.2 for secure agent link download..." -ForegroundColor Cyan
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
@@ -63,10 +170,7 @@ function Run-Install {
     }
 
     $downloadDir = "C:\Script-Temp"
-    if (-not (Test-Path $downloadDir)) {
-        New-Item -Path $downloadDir -ItemType Directory | Out-Null
-    }
-
+    if (-not (Test-Path $downloadDir)) { New-Item -Path $downloadDir -ItemType Directory | Out-Null }
     $destination = Join-Path $downloadDir "cybercnsagent.exe"
 
     Write-Host "Downloading agent to $destination" -ForegroundColor Cyan
@@ -83,135 +187,12 @@ function Run-Install {
     Start-Sleep -Seconds 5
 
     cmd /c $installCmd
-
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Agent installation completed successfully." -ForegroundColor Green
     } else {
         Write-Host "Agent installation failed (Exit Code: $LASTEXITCODE)." -ForegroundColor Red
     }
-
-    # Final prompt to exit after installation
     Read-Host -Prompt "`nPress any key to exit"
-}
-
-# --- Zip and Email Results ---
-function Show-ZipAndEmailMenu {
-    Run-ZipAndEmailResults
-}
-
-function Run-ZipAndEmailResults {
-    # Set up folder and output paths
-    $exportFolder = "C:\Script-Export"
-    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $hostname = $env:COMPUTERNAME
-    $zipFilePath = "$exportFolder\ScriptExport_${hostname}_$timestamp.zip"
-
-    # Ensure export folder exists
-    if (-not (Test-Path $exportFolder)) {
-        Write-Host "Folder '$exportFolder' not found. Exiting..." -ForegroundColor Red
-        exit
-    }
-
-    # Get all files recursively
-    $allFiles = Get-ChildItem -Path $exportFolder -Recurse -File
-    if ($allFiles.Count -eq 0) {
-        Write-Host "No files found in '$exportFolder'. Exiting..." -ForegroundColor Yellow
-        exit
-    }
-
-    # Display contents
-    Write-Host ""
-    Write-Host "=== Contents of $exportFolder ===" -ForegroundColor Cyan
-    $allFiles | ForEach-Object { Write-Host $_.FullName }
-
-    # Calculate total size before compression
-    $totalSizeMB = [math]::Round(($allFiles | Measure-Object Length -Sum).Sum / 1MB, 2)
-    Write-Host ""
-    Write-Host "Total size before compression: $totalSizeMB MB" -ForegroundColor Yellow
-
-    # Prompt to ZIP
-    $zipChoice = Read-Host "`nWould you like to zip the folder contents? (Y/N)"
-    if ($zipChoice -notin @('Y','y')) {
-        Write-Host "Zipping skipped. Exiting..." -ForegroundColor DarkGray
-        exit
-    }
-
-    # Remove old zip if exists
-    if (Test-Path $zipFilePath) { Remove-Item $zipFilePath -Force }
-
-    # Create ZIP
-    Compress-Archive -Path "$exportFolder\*" -DestinationPath $zipFilePath
-
-    # Get ZIP size
-    $zipSizeMB = [math]::Round((Get-Item $zipFilePath).Length / 1MB, 2)
-
-    # Show summary
-    Write-Host ""
-    Write-Host "=== ZIP Summary ===" -ForegroundColor Green
-    Write-Host "ZIP File: $zipFilePath"
-    Write-Host "Size after compression: $zipSizeMB MB" -ForegroundColor Yellow
-
-    # Prompt to email
-    $emailChoice = Read-Host "`nWould you like to email the ZIP file? (Y/N)"
-    if ($emailChoice -in @('Y','y')) {
-        $recipient = Read-Host "Enter recipient email address"
-        $subject = "Script Export from $hostname"
-        $body = "Attached is the export ZIP file from $hostname.`nZIP Path: $zipFilePath"
-
-        Write-Host "`nChecking for Outlook..." -ForegroundColor Cyan
-        $Outlook = $null
-        $OutlookWasRunning = $false
-
-        # Attempt to connect to Outlook (running or start new)
-        try {
-            $Outlook = [Runtime.InteropServices.Marshal]::GetActiveObject("Outlook.Application")
-            $OutlookWasRunning = $true
-        } catch {
-            try {
-                $Outlook = New-Object -ComObject Outlook.Application
-                $OutlookWasRunning = $false
-            } catch {
-                $Outlook = $null
-            }
-        }
-
-        if ($Outlook) {
-            try {
-                # Ensure MAPI session is open
-                $namespace = $Outlook.GetNamespace("MAPI")
-                $namespace.Logon($null, $null, $false, $true)
-
-                # Create and populate mail item
-                $Mail = $Outlook.CreateItem(0)
-                $Mail.To = $recipient
-                $Mail.Subject = $subject
-                $Mail.Body = $body
-
-                if (Test-Path $zipFilePath) {
-                    $Mail.Attachments.Add($zipFilePath)
-                } else {
-                    Write-Host "❌ ZIP file not found at $zipFilePath" -ForegroundColor Red
-                }
-
-                $Mail.Display()
-                Write-Host "`n✅ Outlook draft email opened with ZIP attached." -ForegroundColor Green
-            } catch {
-                Write-Host "❌ Outlook COM error: $($_.Exception.Message)" -ForegroundColor Red
-            }
-        } else {
-            Write-Host "`n⚠️ Outlook not available. Falling back to default mail client..." -ForegroundColor Yellow
-            $mailto = "mailto:$recipient`?subject=$([uri]::EscapeDataString($subject))&body=$([uri]::EscapeDataString($body))"
-            Start-Process $mailto
-            Write-Host ""
-            Write-Host "Please manually attach this file:" -ForegroundColor Cyan
-            Write-Host "$zipFilePath" -ForegroundColor White
-        }
-    } else {
-        Write-Host "Email skipped." -ForegroundColor DarkGray
-    }
-
-    Write-Host ""
-    Read-Host "Press ENTER to exit..."
 }
 
 # Main function to start the tool
