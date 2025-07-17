@@ -1,7 +1,6 @@
-
 # ╔════════════════════════════════════════════════════════════════╗
 # ║  🧰 ConnectSecure Technicians Toolbox – Launcher                ║
-# ║  🚀 Loads 5 modular tools from GitHub links (updateable)        ║
+# ║  🚀 Loads 5 modular tools from GitHub links (live)              ║
 # ╚════════════════════════════════════════════════════════════════╝
 
 function Show-LauncherMenu {
@@ -37,19 +36,19 @@ do {
 
     switch ($choice) {
         "1" {
-            Launch-Tool -toolUrl "https://raw.githubusercontent.com/YOUR_ORG/YOUR_REPO/main/ValidationTool-Collection.ps1"
+            Launch-Tool -toolUrl "https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-Collection.ps1"
         }
         "2" {
-            Launch-Tool -toolUrl "https://raw.githubusercontent.com/YOUR_ORG/YOUR_REPO/main/ValidationTool-Network.ps1"
+            Launch-Tool -toolUrl "https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-Network.ps1"
         }
         "3" {
-            Launch-Tool -toolUrl "https://raw.githubusercontent.com/YOUR_ORG/YOUR_REPO/main/ValidationTool-Agent.ps1"
+            Launch-Tool -toolUrl "https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-Agent.ps1"
         }
         "4" {
-            Launch-Tool -toolUrl "https://raw.githubusercontent.com/YOUR_ORG/YOUR_REPO/main/ValidationTool-AD.ps1"
+            Launch-Tool -toolUrl "https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-AD.ps1"
         }
         "5" {
-            Launch-Tool -toolUrl "https://raw.githubusercontent.com/YOUR_ORG/YOUR_REPO/main/Tools-Utilities.ps1"
+            Launch-Tool -toolUrl "https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Tools-Utilities.ps1"
         }
         "Q" { break }
         default {
