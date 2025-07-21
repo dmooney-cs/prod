@@ -169,7 +169,7 @@ function Run-ZipAndEmailResults {
     if ($emailChoice -in @('Y','y')) {
         $recipient = Read-Host "Enter recipient email address"
         $subject = "Script Export from $hostname"
-        $body = "Attached is the export ZIP file from $hostname.`nZIP Path: $zipFilePath"
+        $body = "Please attach the file located at: $zipFilePath before sending this email."
 
         Write-Host "`nChecking for Outlook..." -ForegroundColor Cyan
         try {
@@ -185,7 +185,7 @@ function Run-ZipAndEmailResults {
                 $Mail = $Outlook.CreateItem(0)
                 $Mail.To = $recipient
                 $Mail.Subject = $subject
-                $Mail.Body = $body
+                $Mail.Body = "Attached is the export ZIP file from $hostname.`nZIP Path: $zipFilePath"
                 if (Test-Path $zipFilePath) { $Mail.Attachments.Add($zipFilePath) }
                 $Mail.Display()
                 Write-Host "`n✅ Outlook draft email opened with ZIP attached." -ForegroundColor Green
@@ -204,45 +204,3 @@ function Run-ZipAndEmailResults {
     }
     Pause-Script
 }
-
-function Run-CleanupScriptData {
-    Write-Host "🧹 Cleaning up export folder..." -ForegroundColor Red
-    Remove-Item -Path "$ExportDir\*" -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "Cleanup complete."
-    Pause-Script
-}
-
-function Show-CollectionMenu {
-    do {
-        Write-Host "`n========= 🧩 Collection Tool Menu ==========" -ForegroundColor Cyan
-        Write-Host "[1] Office Validation"
-        Write-Host "[2] Driver Validation"
-        Write-Host "[3] Roaming Profile Applications"
-        Write-Host "[4] Browser Extension Details"
-        Write-Host "[5] OSQuery Browser Extensions"
-        Write-Host "[6] SSL Cipher Validation"
-        Write-Host "[7] Windows Patch Details"
-        Write-Host "[8] VC++ Runtime & Dependency Check"
-        Write-Host "[9] Zip and Email Results"
-        Write-Host "[10] Cleanup Export Folder"
-        Write-Host "[Q] Quit"
-
-        $choice = Read-Host "Select an option"
-        switch ($choice) {
-            "1" { Run-OfficeValidation }
-            "2" { Run-DriverValidation }
-            "3" { Run-RoamingProfileValidation }
-            "4" { Run-BrowserExtensionDetails }
-            "5" { Run-OSQueryBrowserExtensions }
-            "6" { Run-SSLCipherValidation }
-            "7" { Run-WindowsPatchDetails }
-            "8" { Run-VCRuntimeDependencyCheck }
-            "9" { Run-ZipAndEmailResults }
-            "10" { Run-CleanupScriptData }
-            "Q" { return }
-            default { Write-Host "Invalid option. Try again." -ForegroundColor Yellow }
-        }
-    } while ($true)
-}
-
-Show-CollectionMenu
