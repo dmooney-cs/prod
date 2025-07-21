@@ -1,6 +1,6 @@
-
 # ╔════════════════════════════════════════════════════╗
-# ║ 🧰 CS Tech Toolbox – Collection Tool                  ║
+# ║ 🧰 CS Tech Toolbox – Collection Tool               ║
+# ║ Version: Beta1 | 2025-07-21                        ║
 # ╚════════════════════════════════════════════════════╝
 
 function Run-OfficeValidation {
@@ -130,16 +130,22 @@ function Run-ZipAndEmailResults {
     $hostname = $env:COMPUTERNAME
     $zipFile = "$exportDir\ScriptExport_$hostname_$timestamp.zip"
 
-    if (Test-Path $exportDir) {
-        Compress-Archive -Path "$exportDir\*" -DestinationPath $zipFile -Force
-        Write-Host "ZIP file created: $zipFile" -ForegroundColor Green
-
-        $to = Read-Host "Enter recipient email"
-        $mailto = "mailto:$to?subject=Tool%20Export%20Results&body=Results%20attached.%20ZIP:%20$zipFile"
-        Start-Process $mailto
-    } else {
+    if (-not (Test-Path $exportDir)) {
         Write-Host "No export folder found." -ForegroundColor Yellow
+        return
     }
+
+    Compress-Archive -Path "$exportDir\*" -DestinationPath $zipFile -Force
+    Write-Host "ZIP file created: $zipFile" -ForegroundColor Green
+
+    $to = Read-Host "Enter recipient email"
+
+    $encodedZipPath = $zipFile -replace '\\', '/' -replace ' ', '%20' -replace ':', '%3A'
+    $subject = "Tool Export Results"
+    $body = "Results attached. Please manually attach the ZIP located at: $encodedZipPath"
+
+    $mailto = "mailto:$to?subject=$([uri]::EscapeDataString($subject))&body=$([uri]::EscapeDataString($body))"
+    Start-Process $mailto
 }
 
 function Run-CleanupScriptData {
