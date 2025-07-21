@@ -145,7 +145,8 @@ function Run-ZipAndEmailResults {
     $body = "Results attached. Please manually attach the ZIP located at: $encodedZipPath"
 
     $mailto = "mailto:$to?subject=$([uri]::EscapeDataString($subject))&body=$([uri]::EscapeDataString($body))"
-    Start-Process $mailto
+    $quotedMailto = "`"$mailto`""
+    Start-Process "cmd.exe" -ArgumentList "/c start $quotedMailto"
 }
 
 function Run-CleanupScriptData {
