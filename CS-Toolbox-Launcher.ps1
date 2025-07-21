@@ -35,7 +35,7 @@ function Launch-Tool {
 }
 
 do {
-    Show-LauncherMenu
+    Show-LauncherMenu  # ✅ FIXED: No parentheses here
     $choice = Read-Host "`nSelect a tool"
 
     switch ($choice.ToUpper()) {
