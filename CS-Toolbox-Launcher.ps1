@@ -1,12 +1,16 @@
 # ╔════════════════════════════════════════════════════════════════╗
 # ║  🧰 ConnectSecure Technicians Toolbox – Launcher                ║
 # ║  🚀 Loads 5 modular tools from GitHub links (live)              ║
+# ║  📅 Version: Beta1 | 2025-07-21                                  ║
 # ╚════════════════════════════════════════════════════════════════╝
 
 function Show-LauncherMenu {
     Clear-Host
     Write-Host "╔════════════════════════════════════════════════════╗" -ForegroundColor Cyan
     Write-Host "║          🧰 ConnectSecure Technicians Toolbox       ║" -ForegroundColor Cyan
+    Write-Host "╠════════════════════════════════════════════════════╣" -ForegroundColor Cyan
+    Write-Host "║  🚀 Loads 5 Modular Tools (Live from GitHub)        ║" -ForegroundColor DarkGray
+    Write-Host "║  🛠 Version: Beta1 – 2025-07-21                     ║" -ForegroundColor DarkGray
     Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "🧩 [1] Validation Collection Tool     → Microsoft, Drivers, Patches"
@@ -31,10 +35,10 @@ function Launch-Tool {
 }
 
 do {
-    Show-LauncherMenu()
+    Show-LauncherMenu
     $choice = Read-Host "`nSelect a tool"
 
-    switch ($choice) {
+    switch ($choice.ToUpper()) {
         "1" {
             Launch-Tool -toolUrl "https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-Collection.ps1"
         }
@@ -52,7 +56,7 @@ do {
         }
         "Q" { break }
         default {
-            Write-Host "Invalid selection. Try again." -ForegroundColor Yellow
+            Write-Host "⚠️  Invalid selection. Please try again." -ForegroundColor Yellow
         }
     }
 } while ($true)
