@@ -140,13 +140,13 @@ function Run-ZipAndEmailResults {
 
     $to = Read-Host "Enter recipient email"
 
-    $encodedZipPath = $zipFile -replace '\\', '/' -replace ' ', '%20' -replace ':', '%3A'
-    $subject = "Tool Export Results"
-    $body = "Results attached. Please manually attach the ZIP located at: $encodedZipPath"
+    $encodedPath = $zipFile -replace '\\', '/' -replace ':', '%3A' -replace ' ', '%20'
+    $subject = [uri]::EscapeDataString("Tool Export Results")
+    $body = [uri]::EscapeDataString("Results attached. Please manually attach the ZIP located at: $encodedPath")
+    $mailto = "mailto:$to?subject=$subject&body=$body"
 
-    $mailto = "mailto:$to?subject=$([uri]::EscapeDataString($subject))&body=$([uri]::EscapeDataString($body))"
-    $quotedMailto = "`"$mailto`""
-    Start-Process "cmd.exe" -ArgumentList "/c start $quotedMailto"
+    # Fix: Use cmd.exe /c start "" "<mailto-link>" to handle mailto properly
+    Start-Process "cmd.exe" -ArgumentList "/c", "start", '""', "`"$mailto`""
 }
 
 function Run-CleanupScriptData {
