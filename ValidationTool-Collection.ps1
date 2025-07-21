@@ -3,6 +3,16 @@
 # ║ Version: Beta1 | 2025-07-21                        ║
 # ╚════════════════════════════════════════════════════╝
 
+# Pause function for consistent user prompts
+function Pause-Script {
+    Write-Host "`nPress any key to continue..." -ForegroundColor DarkGray
+    try {
+        [void][System.Console]::ReadKey($true)
+    } catch {
+        Read-Host "Press Enter to continue..."
+    }
+}
+
 function Run-OfficeValidation {
     Write-Host "▶ Running Office Validation..." -ForegroundColor Cyan
     $ts = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -13,6 +23,7 @@ function Run-OfficeValidation {
     )
     $data | Export-Csv -Path $out -NoTypeInformation
     Write-Host "Exported results to: $out" -ForegroundColor Green
+    Pause-Script
 }
 
 function Run-DriverValidation {
@@ -23,6 +34,7 @@ function Run-DriverValidation {
     $drivers = Get-WmiObject Win32_PnPSignedDriver | Select-Object DeviceName, DeviceID, DriverVersion, Manufacturer, DriverPath
     $drivers | Export-Csv -Path $out -NoTypeInformation
     Write-Host "Exported results to: $out" -ForegroundColor Green
+    Pause-Script
 }
 
 function Run-RoamingProfileValidation {
@@ -41,6 +53,7 @@ function Run-RoamingProfileValidation {
     }
     $data | Export-Csv -Path $out -NoTypeInformation
     Write-Host "Exported results to: $out" -ForegroundColor Green
+    Pause-Script
 }
 
 function Run-BrowserExtensionDetails {
@@ -63,6 +76,7 @@ function Run-BrowserExtensionDetails {
     }
     $data | Export-Csv -Path $out -NoTypeInformation
     Write-Host "Exported results to: $out" -ForegroundColor Green
+    Pause-Script
 }
 
 function Run-OSQueryBrowserExtensions {
@@ -70,6 +84,7 @@ function Run-OSQueryBrowserExtensions {
     $osq = "C:\Program Files (x86)\CyberCNSAgent\osqueryi.exe"
     if (-not (Test-Path $osq)) {
         Write-Host "OSQuery not found." -ForegroundColor Red
+        Pause-Script
         return
     }
     $query = "SELECT * FROM chrome_extensions;"
@@ -79,6 +94,7 @@ function Run-OSQueryBrowserExtensions {
     $output = & $osq --json "$query" | ConvertFrom-Json
     $output | Export-Csv -Path $csv -NoTypeInformation
     Write-Host "Exported results to: $csv" -ForegroundColor Green
+    Pause-Script
 }
 
 function Run-SSLCipherValidation {
@@ -89,11 +105,13 @@ function Run-SSLCipherValidation {
     $out = "C:\Script-Export\TLS443Scan-$hn-$ts.csv"
     if (-not (Test-Path $nmap)) {
         Write-Host "Nmap not found." -ForegroundColor Red
+        Pause-Script
         return
     }
     $cmd = "$nmap --script ssl-enum-ciphers -p 443 127.0.0.1 -oN $out"
     Invoke-Expression $cmd
     Write-Host "Nmap scan saved to $out" -ForegroundColor Green
+    Pause-Script
 }
 
 function Run-WindowsPatchDetails {
@@ -104,6 +122,7 @@ function Run-WindowsPatchDetails {
     $patches = Get-HotFix | Select-Object Description, HotFixID, InstalledOn
     $patches | Export-Csv -Path $out -NoTypeInformation
     Write-Host "Exported results to: $out" -ForegroundColor Green
+    Pause-Script
 }
 
 function Run-VCRuntimeDependencyCheck {
@@ -122,37 +141,104 @@ function Run-VCRuntimeDependencyCheck {
     }
     $data | Export-Csv -Path $out -NoTypeInformation
     Write-Host "Exported results to: $out" -ForegroundColor Green
+    Pause-Script
 }
 
 function Run-ZipAndEmailResults {
-    $exportDir = "C:\Script-Export"
+    $ExportFolder = "C:\Script-Export"
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
-    $zipFile = "$exportDir\ScriptExport_$hostname_$timestamp.zip"
+    $zipFilePath = "$ExportFolder\ScriptExport_${hostname}_$timestamp.zip"
 
-    if (-not (Test-Path $exportDir)) {
-        Write-Host "No export folder found." -ForegroundColor Yellow
+    if (-not (Test-Path $ExportFolder)) {
+        Write-Host "Folder '$ExportFolder' not found." -ForegroundColor Red
+        Pause-Script
         return
     }
 
-    Compress-Archive -Path "$exportDir\*" -DestinationPath $zipFile -Force
-    Write-Host "ZIP file created: $zipFile" -ForegroundColor Green
+    $allFiles = Get-ChildItem -Path $ExportFolder -Recurse -File
+    if ($allFiles.Count -eq 0) {
+        Write-Host "No files found in '$ExportFolder'." -ForegroundColor Yellow
+        Pause-Script
+        return
+    }
 
-    $to = Read-Host "Enter recipient email"
-    $encodedPath = $zipFile -replace '\\', '/' -replace ':', '%3A' -replace ' ', '%20'
-    $subject = [uri]::EscapeDataString("Tool Export Results")
-    $body = [uri]::EscapeDataString("Please manually attach the ZIP located at: $encodedPath")
-    $mailto = "mailto:$to?subject=$subject&body=$body"
+    Write-Host "`n=== Contents of $ExportFolder ===" -ForegroundColor Cyan
+    $allFiles | ForEach-Object { Write-Host $_.FullName }
 
-    # Absolute fix using cmd /c start with quoted mailto
-    $launch = "start `"`"$mailto`"`""
-    cmd.exe /c $launch
+    $totalSizeMB = [math]::Round(($allFiles | Measure-Object Length -Sum).Sum / 1MB, 2)
+    Write-Host "`nTotal size before compression: $totalSizeMB MB" -ForegroundColor Yellow
+
+    $zipChoice = Read-Host "`nWould you like to zip the folder contents? (Y/N)"
+    if ($zipChoice -notin @('Y','y')) {
+        Write-Host "Zipping skipped." -ForegroundColor DarkGray
+        Pause-Script
+        return
+    }
+
+    if (Test-Path $zipFilePath) { Remove-Item $zipFilePath -Force }
+
+    Compress-Archive -Path "$ExportFolder\*" -DestinationPath $zipFilePath
+    $zipSizeMB = [math]::Round((Get-Item $zipFilePath).Length / 1MB, 2)
+
+    Write-Host "`n=== ZIP Summary ===" -ForegroundColor Green
+    Write-Host "ZIP File: $zipFilePath"
+    Write-Host "Size after compression: $zipSizeMB MB" -ForegroundColor Yellow
+
+    $emailChoice = Read-Host "`nWould you like to email the ZIP file? (Y/N)"
+    if ($emailChoice -in @('Y','y')) {
+        $recipient = Read-Host "Enter recipient email address"
+        $subject = "Script Export from $hostname"
+        $body = "Attached is the export ZIP file from $hostname.`nZIP Path: $zipFilePath"
+
+        Write-Host "`nChecking for Outlook..." -ForegroundColor Cyan
+        $Outlook = $null
+        try {
+            $Outlook = [Runtime.InteropServices.Marshal]::GetActiveObject("Outlook.Application")
+        } catch {
+            try {
+                $Outlook = New-Object -ComObject Outlook.Application
+            } catch {
+                $Outlook = $null
+            }
+        }
+
+        if ($Outlook) {
+            try {
+                $namespace = $Outlook.GetNamespace("MAPI")
+                $namespace.Logon($null, $null, $false, $true)
+
+                $Mail = $Outlook.CreateItem(0)
+                $Mail.To = $recipient
+                $Mail.Subject = $subject
+                $Mail.Body = $body
+                if (Test-Path $zipFilePath) {
+                    $Mail.Attachments.Add($zipFilePath)
+                }
+                $Mail.Display()
+                Write-Host "`n✅ Outlook draft email opened with ZIP attached." -ForegroundColor Green
+            } catch {
+                Write-Host "❌ Outlook COM error: $($_.Exception.Message)" -ForegroundColor Red
+            }
+        } else {
+            Write-Host "`n⚠️ Outlook not available. Falling back to default mail client..." -ForegroundColor Yellow
+            $mailto = "mailto:$recipient?subject=$([uri]::EscapeDataString($subject))&body=$([uri]::EscapeDataString($body))"
+            Start-Process $mailto
+            Write-Host "`nPlease manually attach this file:" -ForegroundColor Cyan
+            Write-Host "$zipFilePath" -ForegroundColor White
+        }
+    } else {
+        Write-Host "Email skipped." -ForegroundColor DarkGray
+    }
+
+    Pause-Script
 }
 
 function Run-CleanupScriptData {
     Write-Host "🧹 Cleaning up export folder..." -ForegroundColor Red
     Remove-Item -Path "C:\Script-Export\*" -Force -Recurse -ErrorAction SilentlyContinue
     Write-Host "Cleanup complete."
+    Pause-Script
 }
 
 function Show-CollectionMenu {
