@@ -1,7 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 1.0 | 2025-07-21                                  ║
-# ║ PowerShell 5.1 compatible: no null coalescing              ║
+# ║ Version: 1.1 | 2025-07-21                                  ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -11,56 +10,12 @@ if (-not (Test-Path $TempDir)) {
     New-Item -Path $TempDir -ItemType Directory | Out-Null
 }
 
-function Get-AgentVersion {
-    $url = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
-    $headVer = $null
-    $getVer = $null
-
-    Write-Host "🔍 Checking for latest agent version..."
-
-    Write-Host "➡ Attempting HEAD request to extract version..."
-    try {
-        $resp = Invoke-WebRequest -Uri $url -Method Head -UseBasicParsing
-        $headVer = $resp.Headers["X-Agent-Version"]
-        if (-not $headVer -and $resp.BaseResponse -and $resp.BaseResponse.ResponseUri) {
-            $segments = $resp.BaseResponse.ResponseUri.Segments
-            if ($segments.Count -gt 0) {
-                $headVer = $segments[-1].TrimEnd('/')
-            }
-        }
-        if ($headVer) {
-            Write-Host "✅ Found version in headers or redirect: $headVer"
-        }
-    } catch {
-        Write-Host "❌ HEAD version check failed." -ForegroundColor Yellow
-    }
-
-    Write-Host "➡ Attempting GET request to extract version..."
-    try {
-        $get = Invoke-WebRequest -Uri $url -Method Get -UseBasicParsing
-        if ($get.BaseResponse -and $get.BaseResponse.ResponseUri) {
-            $segments = $get.BaseResponse.ResponseUri.Segments
-            if ($segments.Count -gt 0) {
-                $getVer = $segments[-1].TrimEnd('/')
-                Write-Host "✅ Found version in GET redirect: $getVer"
-            }
-        }
-    } catch {
-        Write-Host "❌ GET version check failed." -ForegroundColor Yellow
-    }
-
-    if ($headVer) { return $headVer }
-    elseif ($getVer) { return $getVer }
-    else { return "Unknown" }
-}
-
 function Run-AgentInstaller {
     Show-Header "CyberCNS Agent Installer"
 
     $company = Read-Host "Enter Company ID"
     $tenant  = Read-Host "Enter Tenant ID"
     $secret  = Read-Host "Enter Secret Key"
-    $version = Get-AgentVersion
 
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
@@ -68,6 +23,7 @@ function Run-AgentInstaller {
     $summaryPath = "$ExportFolder\AgentInstall-Summary-$timestamp-$hostname.csv"
     $installer = "$TempDir\cybercnsagent.exe"
     $agentUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
+    $version = "Unknown"
 
     Start-Transcript -Path $logFile -Force
 
@@ -75,8 +31,12 @@ function Run-AgentInstaller {
     $downloaded = $false
     try {
         Invoke-WebRequest -Uri $agentUrl -OutFile $installer -UseBasicParsing
-        $downloaded = $true
         Write-Host "✅ Agent downloaded to: $installer" -ForegroundColor Green
+        $downloaded = $true
+        if (Test-Path $installer) {
+            $version = (Get-Item $installer).VersionInfo.ProductVersion
+            Write-Host "📦 Detected agent version: $version" -ForegroundColor Cyan
+        }
     } catch {
         Write-Host "❌ Failed to download agent." -ForegroundColor Red
     }
