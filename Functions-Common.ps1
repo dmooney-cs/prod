@@ -1,5 +1,5 @@
 # ╔═════════════════════════════════════════════════════════════╗
-# ║ 🔧 CS Toolbox – Shared Functions v3.2                       ║
+# ║ 🔧 CS Toolbox – Shared Functions v3.2 (Cleaned)            ║
 # ║ Includes: Header, Export, ZIP, Cleanup, Email, Helpers     ║
 # ╚═════════════════════════════════════════════════════════════╝
 
@@ -33,7 +33,7 @@ function Get-ExportPath {
     param ($BaseName, $Ext = "csv")
     $hn = $env:COMPUTERNAME
     $time = Get-Date -Format "yyyyMMdd_HHmmss"
-    return "$ExportFolder\$BaseName-$time-$host.$Ext"
+    return "$ExportFolder\$BaseName-$time-$hn.$Ext"
 }
 
 function Export-Data {
@@ -112,4 +112,3 @@ function Invoke-CleanupExportFolder {
 
     Pause-Script
 }
-<v3.1 with shared utilities>
