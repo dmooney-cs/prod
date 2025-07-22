@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Validation Tool B                      ║
-# ║ Version: B.1 | 2025-07-21                                   ║
+# ║ Version: B.2 | 2025-07-21                                   ║
 # ║ Includes VC++ Detection, Windows Patching, ZIP, Cleanup     ║
 # ╚═════════════════════════════════════════════════════════════╝
 
@@ -36,7 +36,6 @@ function Run-VCPPValidation {
 function Run-WindowsPatchCheck {
     Show-Header "Windows Patch Details – HotFix / WMIC / Osquery"
 
-    # Get-HotFix
     try {
         $hotfix = Get-HotFix | Select-Object Description, HotFixID, InstalledOn
         Export-Data -Object $hotfix -BaseName "Patches_GetHotFix"
@@ -44,7 +43,6 @@ function Run-WindowsPatchCheck {
         Write-Host "Get-HotFix failed." -ForegroundColor Red
     }
 
-    # WMIC
     try {
         $wmic = wmic qfe list full /format:csv | Out-String
         $outFile = Get-ExportPath -BaseName "Patches_WMIC" -Ext "txt"
@@ -54,7 +52,6 @@ function Run-WindowsPatchCheck {
         Write-Host "WMIC failed." -ForegroundColor Red
     }
 
-    # Osquery (if available)
     $osquery = "C:\Program Files (x86)\CyberCNSAgent\osqueryi.exe"
     if (Test-Path $osquery) {
         $query = "SELECT hotfix_id, description, installed_on FROM patches;"
@@ -77,7 +74,7 @@ function Show-CollectionMenuB {
     Clear-Host
     Write-Host ""
     Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║   🧰 CS Tech Toolbox – Collection Tool B     ║" -ForegroundColor Cyan
+    Write-Host "║   🧰 CS Tech Toolbox – Validation Tool B     ║" -ForegroundColor Cyan
     Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
     $menu = @(
@@ -93,10 +90,19 @@ function Show-CollectionMenuB {
     switch ($sel) {
         "1" { Run-VCPPValidation }
         "2" { Run-WindowsPatchCheck }
-        "3" { Invoke-ZipAndEmailResults }
-        "4" { Invoke-CleanupExportFolder }
+        "3" {
+            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+            Invoke-ZipAndEmailResults
+        }
+        "4" {
+            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+            Invoke-CleanupExportFolder
+        }
         "Q" { return }
-        default { Write-Host "Invalid selection." -ForegroundColor Red; Pause-Script }
+        default {
+            Write-Host "Invalid selection." -ForegroundColor Red
+            Pause-Script
+        }
     }
     Show-CollectionMenuB
 }
