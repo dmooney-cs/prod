@@ -2,23 +2,16 @@
 #   ConnectSecure Agent Install Utility
 # ==========================================
 
-try {
-    . { iwr -useb "https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1" } | iex
-} catch {
-    Write-Host "❌ Failed to load Functions-Common.ps1" -ForegroundColor Red
-    Pause
-    exit
-}
-
+irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+Ensure-ExportFolder
 Show-Header "ConnectSecure Agent Install Utility"
 
 function Run-AgentInstall {
     $ts = Get-Date -Format "yyyyMMdd_HHmmss"
     $hn = $env:COMPUTERNAME
     $log = @()
-    $folder = Ensure-ExportFolder
-    $csvPath = "$folder\AgentInstallLog_$ts`_$hn.csv"
-    $txtPath = "$folder\AgentInstallLog_$ts`_$hn.txt"
+    $baseName = "AgentInstallLog_$ts`_$hn"
+    $txtPath = "$env:TEMP\\$baseName.txt"
     Start-Transcript -Path $txtPath -Append
 
     # Check for existing services
@@ -42,13 +35,13 @@ function Run-AgentInstall {
         }
     }
 
-    # Prompt for required fields
+    # Prompt for credentials
     $company = Read-Host "Enter Company ID"
     $tenant  = Read-Host "Enter Tenant ID"
     $key     = Read-Host "Enter Secret Key"
 
-    # Resolve and download agent
-    $agentPath = "$env:TEMP\cybercnsagent.exe"
+    # Download agent
+    $agentPath = "$env:TEMP\\cybercnsagent.exe"
     $metaUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
     try {
         Write-Host "`n🔎 Resolving agent download URL..." -ForegroundColor Cyan
@@ -65,7 +58,7 @@ function Run-AgentInstall {
         return
     }
 
-    # Run installer (in separate window)
+    # Run agent installer
     Write-Host "`n🚀 Installing agent..." -ForegroundColor Cyan
     try {
         Start-Process -FilePath $agentPath -ArgumentList "-c $company -e $tenant -j $key -i" -Wait
@@ -76,9 +69,8 @@ function Run-AgentInstall {
         $log += [PSCustomObject]@{ Step = "Install Agent"; Status = "Failed"; Time = $ts }
     }
 
-    Export-Data -Data $log -Path $csvPath
-    Write-Host "`n📁 CSV log exported to: " -NoNewline; Write-ExportPath $csvPath
-    Write-Host "📄 Transcript saved to: " -NoNewline; Write-ExportPath $txtPath
+    Export-Data -Object $log -BaseName $baseName
+    Write-Host "`n📄 Transcript saved to: $txtPath"
 
     Run-ZipAndEmailResults
     Run-CleanupExportFolder
