@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 2.0 | Download check before prompt, inline run     ║
+# ║ Version: 2.1 | Pre-install check & uninstall prompt added   ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -13,6 +13,17 @@ if (-not (Test-Path $TempDir)) {
 
 function Run-AgentInstaller {
     Show-Header "CyberCNS Agent - INSTALL"
+
+    # Step 0: Check if agent is already installed
+    $existing = "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat"
+    if (Test-Path $existing) {
+        Write-Host "`n⚠️ Agent appears to already be installed." -ForegroundColor Yellow
+        $choice = Read-Host "Would you like to uninstall it first? (Y/N)"
+        if ($choice -eq "Y" -or $choice -eq "y") {
+            Run-AgentUninstall
+            return
+        }
+    }
 
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
