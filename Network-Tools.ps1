@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Network Tools                         ║
-# ║ Version: 1.0 | 2025-07-21                                  ║
+# ║ Version: 1.1 | 2025-07-21                                  ║
 # ║ Includes TLS 1.0, ValidateSMB, Npcap Installer             ║
 # ╚═════════════════════════════════════════════════════════════╝
 
@@ -20,7 +20,7 @@ function Run-TLS10Check {
     $logPath = Get-ExportPath -BaseName "TLS10Scan-$target" -Ext "txt"
 
     try {
-        & $nmap --script ssl-enum-ciphers -p 3389 $target | Out-File $logPath
+        & $nmap --script ssl-enum-ciphers -p 3389 $target | Out-File $logPath -Encoding UTF8
         Write-ExportPath $logPath
     } catch {
         Write-Host "TLS scan failed: $_" -ForegroundColor Red
@@ -36,7 +36,7 @@ function Run-ValidateSMB {
     if (-not (Test-Path $exe)) {
         Write-Host "Downloading ValidateSMB..." -ForegroundColor Yellow
         try {
-            Invoke-WebRequest -Uri "https://betadev.mycybercns.com/agents/validatesmb/validatesmb.exe" -OutFile $exe -UseBasicParsing
+            Invoke-WebRequest -Uri "https://betadev.mycybercns.com/agents/validatesmb/validatesmb.exe" -OutFile $exe
         } catch {
             Write-Host "❌ Download failed." -ForegroundColor Red
             Pause-Script; return
@@ -49,12 +49,17 @@ function Run-ValidateSMB {
     $target = Read-Host "Enter target SMB IP"
 
     $cmd = "`"$exe`" validatesmb $domain $user $pass $target"
-    $output = Invoke-Expression $cmd
+    try {
+        $outputRaw = Invoke-Expression $cmd
+    } catch {
+        $outputRaw = "❌ ValidateSMB execution failed: $_"
+    }
+
     $shareTest = Test-Path "\\$target\admin$"
 
     $results = @(
-        [PSCustomObject]@{ Check="ValidateSMB Output"; Result=$output },
-        [PSCustomObject]@{ Check="Admin$ Access Test"; Result=if ($shareTest) { "Accessible" } else { "Failed" } }
+        [PSCustomObject]@{ Check = "ValidateSMB Output"; Result = ($outputRaw -join "`n") },
+        [PSCustomObject]@{ Check = "Admin$ Access Test"; Result = if ($shareTest) { "Accessible" } else { "Failed" } }
     )
 
     Export-Data -Object $results -BaseName "ValidateSMB"
@@ -67,8 +72,8 @@ function Run-NpcapInstaller {
     $installer = "$env:TEMP\npcap-1.79.exe"
 
     try {
-        Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
-        Start-Process -FilePath $installer -ArgumentList "/S" -Wait
+        Invoke-WebRequest -Uri $url -OutFile $installer
+        Start-Process -FilePath $installer -ArgumentList "/S" -Wait -NoNewWindow
         Write-Host "✅ Npcap installed successfully." -ForegroundColor Green
     } catch {
         Write-Host "❌ Npcap install failed: $_" -ForegroundColor Red
@@ -98,7 +103,7 @@ function Show-NetworkToolsMenu {
         "2" { Run-ValidateSMB }
         "3" { Run-NpcapInstaller }
         "Q" { return }
-        default { Write-Host "Invalid option." -ForegroundColor Red; Pause-Script }
+        default { Write-Host "Invalid selection." -ForegroundColor Red; Pause-Script }
     }
     Show-NetworkToolsMenu
 }
