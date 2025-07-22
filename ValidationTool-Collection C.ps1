@@ -94,4 +94,3 @@ function Show-CollectionMenuC {
 }
 
 Show-CollectionMenuC
-<Recovered Collection C>
