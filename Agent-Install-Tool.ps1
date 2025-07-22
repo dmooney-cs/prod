@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 1.6 | Download headers + integrity check added    ║
+# ║ Version: 1.7 | Uses redirected agent link correctly         ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -22,24 +22,19 @@ function Run-AgentInstaller {
     $logFile = "$ExportFolder\AgentInstall-Log-$timestamp-$hostname.txt"
     $summaryPath = "$ExportFolder\AgentInstall-Summary-$timestamp-$hostname.csv"
     $installer = "$TempDir\cybercnsagent.exe"
-    $agentUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
+    $agentLinkApi = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
     $result = "Not Run"
     $version = "Unknown"
 
     Start-Transcript -Path $logFile -Force
 
-    Write-Host "`n🔍 Checking download headers..."
     try {
-        $head = Invoke-WebRequest -Uri $agentUrl -Method Head -UseBasicParsing
-        Write-Host "📎 Content-Type: $($head.Headers['Content-Type'])"
-        Write-Host "📎 Content-Length: $($head.Headers['Content-Length']) bytes"
-    } catch {
-        Write-Host "⚠️ Unable to retrieve headers. Proceeding anyway..." -ForegroundColor Yellow
-    }
+        Write-Host "`n🔍 Resolving latest agent download URL..."
+        $resolvedUrl = Invoke-RestMethod -Method Get -Uri $agentLinkApi
+        Write-Host "➡ Resolved to: $resolvedUrl" -ForegroundColor Gray
 
-    Write-Host "`n📥 Downloading agent..."
-    try {
-        Invoke-WebRequest -Uri $agentUrl -OutFile $installer -UseBasicParsing
+        Write-Host "`n📥 Downloading agent from resolved URL..."
+        Invoke-WebRequest -Uri $resolvedUrl -OutFile $installer -UseBasicParsing
 
         $size = (Get-Item $installer).Length
         Write-Host "📦 Downloaded file size: $size bytes"
