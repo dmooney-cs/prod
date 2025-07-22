@@ -1,111 +1,117 @@
-# ╔═════════════════════════════════════════════════════════════╗
-# ║ 🧰 CS Tech Toolbox – Network Tools                         ║
-# ║ Version: 1.1 | 2025-07-21                                  ║
-# ║ Includes TLS 1.0, ValidateSMB, Npcap Installer             ║
-# ╚═════════════════════════════════════════════════════════════╝
+# ╔════════════════════════════════════════════════════════════╗
+# ║ 🌐 CS Tech Toolbox – Network Tools                         ║
+# ║ Version: N.3 – TLS 1.0, ValidateSMB, Npcap Install         ║
+# ╚════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
 
-function Run-TLS10Check {
-    Show-Header "TLS 1.0 Cipher Scan (Port 3389)"
-    $target = Read-Host "Enter target IP address"
-    $nmap = "C:\Program Files (x86)\CyberCNSAgent\nmap\nmap.exe"
+function Run-TLS10Scan {
+    Clear-Host
+    Write-Host "`n=== TLS 1.0 Cipher Scan (Port 3389) ===`n" -ForegroundColor Cyan
 
-    if (-not (Test-Path $nmap)) {
-        Write-Host "Nmap not found at expected location: $nmap" -ForegroundColor Red
-        Pause-Script; return
+    $nmapPath = "C:\Program Files (x86)\CyberCNSAgent\nmap\nmap.exe"
+    if (-not (Test-Path $nmapPath)) {
+        Write-Host "❌ Nmap not found at $nmapPath" -ForegroundColor Red
+        Pause-Script
+        return
     }
 
-    $logPath = Get-ExportPath -BaseName "TLS10Scan-$target" -Ext "txt"
-
-    try {
-        & $nmap --script ssl-enum-ciphers -p 3389 $target | Out-File $logPath -Encoding UTF8
-        Write-ExportPath $logPath
-    } catch {
-        Write-Host "TLS scan failed: $_" -ForegroundColor Red
+    $ip = Read-Host "Enter target IP address"
+    if (-not $ip) {
+        Write-Host "Cancelled." -ForegroundColor Yellow
+        Pause-Script
+        return
     }
 
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $outputFile = "C:\Script-Export\TLS10Scan-$ip-$timestamp-$hostname.txt"
+
+    & $nmapPath --script ssl-enum-ciphers -p 3389 $ip | Tee-Object -FilePath $outputFile
+
+    Write-Host "`n✔ Scan complete. Results saved to:" -ForegroundColor Green
+    Write-Host $outputFile -ForegroundColor Yellow
     Pause-Script
 }
 
 function Run-ValidateSMB {
-    Show-Header "ValidateSMB Tool"
+    Clear-Host
+    Write-Host "`n=== ValidateSMB Tool ===`n" -ForegroundColor Cyan
 
-    $exe = "$env:ProgramFiles(x86)\CyberCNSAgent\validatesmb.exe"
-    if (-not (Test-Path $exe)) {
-        Write-Host "Downloading ValidateSMB..." -ForegroundColor Yellow
-        try {
-            Invoke-WebRequest -Uri "https://betadev.mycybercns.com/agents/validatesmb/validatesmb.exe" -OutFile $exe
-        } catch {
-            Write-Host "❌ Download failed." -ForegroundColor Red
-            Pause-Script; return
+    $toolPath = "C:\Program Files (x86)\CyberCNSAgent\ValidateSMB.exe"
+    if (-not (Test-Path $toolPath)) {
+        Write-Host "❌ ValidateSMB.exe not found." -ForegroundColor Red
+        Pause-Script
+        return
+    }
+
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $hostname = $env:COMPUTERNAME
+    $outputFile = "C:\Script-Export\ValidateSMB-$timestamp-$hostname.txt"
+
+    & $toolPath | Tee-Object -FilePath $outputFile
+
+    Write-Host "`n✔ SMB results saved to:" -ForegroundColor Green
+    Write-Host $outputFile -ForegroundColor Yellow
+    Pause-Script
+}
+
+function Run-InstallNpcap {
+    Clear-Host
+    Write-Host "`n=== Npcap Installer ===`n" -ForegroundColor Cyan
+
+    $url = "https://npcap.com/dist/npcap-1.79.exe"
+    $installer = "C:\Script-Temp\npcap-1.79.exe"
+
+    if (-not (Test-Path "C:\Script-Temp")) {
+        New-Item -Path "C:\Script-Temp" -ItemType Directory | Out-Null
+    }
+
+    Write-Host "⬇ Downloading Npcap..."
+    Invoke-WebRequest -Uri $url -OutFile $installer
+
+    if (Test-Path $installer) {
+        Write-Host "⚙ Installing Npcap silently..."
+        Start-Process -FilePath $installer -ArgumentList "/S" -Wait
+
+        Write-Host "`n✔ Npcap installation attempted. You may verify manually." -ForegroundColor Green
+    } else {
+        Write-Host "❌ Failed to download Npcap." -ForegroundColor Red
+    }
+
+    Pause-Script
+}
+
+function Show-NetworkMenu {
+    Clear-Host
+    Write-Host "╔════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "║         🌐 CS Toolbox – Network Tools Menu         ║" -ForegroundColor Cyan
+    Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host " [1] TLS 1.0 Check (Port 3389)"
+    Write-Host " [2] ValidateSMB Tool"
+    Write-Host " [3] Install Npcap"
+    Write-Host ""
+    Write-Host " [Z] Zip and Email Results"
+    Write-Host " [C] Cleanup Export Folder"
+    Write-Host " [Q] Quit"
+    Write-Host ""
+}
+
+do {
+    Show-NetworkMenu
+    $choice = Read-Host "Select an option"
+    switch ($choice) {
+        '1' { Run-TLS10Scan }
+        '2' { Run-ValidateSMB }
+        '3' { Run-InstallNpcap }
+        'Z' { Run-ZipAndEmailResults }
+        'C' { Run-CleanupExportFolder }
+        'Q' { return }
+        default {
+            Write-Host "Invalid option. Try again." -ForegroundColor Yellow
+            Pause-Script
         }
     }
-
-    $domain = Read-Host "Enter domain (FQDN)"
-    $user   = Read-Host "Enter SMB username"
-    $pass   = Read-Host "Enter SMB password"
-    $target = Read-Host "Enter target SMB IP"
-
-    $cmd = "`"$exe`" validatesmb $domain $user $pass $target"
-    try {
-        $outputRaw = Invoke-Expression $cmd
-    } catch {
-        $outputRaw = "❌ ValidateSMB execution failed: $_"
-    }
-
-    $shareTest = Test-Path "\\$target\admin$"
-
-    $results = @(
-        [PSCustomObject]@{ Check = "ValidateSMB Output"; Result = ($outputRaw -join "`n") },
-        [PSCustomObject]@{ Check = "Admin$ Access Test"; Result = if ($shareTest) { "Accessible" } else { "Failed" } }
-    )
-
-    Export-Data -Object $results -BaseName "ValidateSMB"
-    Pause-Script
-}
-
-function Run-NpcapInstaller {
-    Show-Header "Install Npcap (1.79)"
-    $url = "https://npcap.com/dist/npcap-1.79.exe"
-    $installer = "$env:TEMP\npcap-1.79.exe"
-
-    try {
-        Invoke-WebRequest -Uri $url -OutFile $installer
-        Start-Process -FilePath $installer -ArgumentList "/S" -Wait -NoNewWindow
-        Write-Host "✅ Npcap installed successfully." -ForegroundColor Green
-    } catch {
-        Write-Host "❌ Npcap install failed: $_" -ForegroundColor Red
-    }
-
-    Pause-Script
-}
-
-function Show-NetworkToolsMenu {
-    Clear-Host
-    Write-Host ""
-    Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║   🧰 CS Tech Toolbox – Network Tools         ║" -ForegroundColor Cyan
-    Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
-    Write-Host ""
-    $menu = @(
-        " [1] TLS 1.0 Check (Port 3389)",
-        " [2] ValidateSMB Tool",
-        " [3] Install Npcap",
-        " [Q] Quit"
-    )
-    $menu | ForEach-Object { Write-Host $_ }
-
-    $sel = Read-Host "`nSelect an option"
-    switch ($sel) {
-        "1" { Run-TLS10Check }
-        "2" { Run-ValidateSMB }
-        "3" { Run-NpcapInstaller }
-        "Q" { return }
-        default { Write-Host "Invalid selection." -ForegroundColor Red; Pause-Script }
-    }
-    Show-NetworkToolsMenu
-}
-
-Show-NetworkToolsMenu
+} while ($true)
