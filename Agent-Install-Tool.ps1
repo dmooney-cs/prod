@@ -11,9 +11,9 @@ function Run-AgentInstall {
     $hn = $env:COMPUTERNAME
     $log = @()
     $baseName = "AgentInstallLog_$ts`_$hn"
-    $txtPath = "C:\\Script-Temp\\$baseName.txt"
-    if (-not (Test-Path "C:\\Script-Temp")) {
-        New-Item -Path "C:\\Script-Temp" -ItemType Directory | Out-Null
+    $txtPath = "C:\Script-Temp\$baseName.txt"
+    if (-not (Test-Path "C:\Script-Temp")) {
+        New-Item -Path "C:\Script-Temp" -ItemType Directory | Out-Null
     }
     Start-Transcript -Path $txtPath -Append
 
@@ -32,8 +32,8 @@ function Run-AgentInstall {
         $choice = Read-Host "Do you want to uninstall first using the advanced tool? (Y/N)"
         if ($choice -match "^[Yy]$") {
             Write-Host "`n🧪 Step 1/2: Preparing uninstall script..." -ForegroundColor Cyan
-            $uninstallPath = "C:\\Script-Temp\\uninstall.bat"
-            $sourcePath = "C:\\Program Files (x86)\\CyberCNSAgent\\uninstall.bat"
+            $uninstallPath = "C:\Script-Temp\uninstall.bat"
+            $sourcePath = "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat"
 
             if (Test-Path $sourcePath) {
                 Copy-Item $sourcePath $uninstallPath -Force
@@ -85,7 +85,7 @@ rmdir CyberCNSAgent /s /q
     # Download agent
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $downloadUrl = (Invoke-WebRequest -Uri "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows" -UseBasicParsing).Content
-    $agentPath = "C:\\Script-Temp\\cybercnsagent.exe"
+    $agentPath = "C:\Script-Temp\cybercnsagent.exe"
 
     Write-Host "`n⬇️ Downloading agent from:" -ForegroundColor Cyan
     Write-Host $downloadUrl -ForegroundColor Gray
