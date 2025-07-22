@@ -1,4 +1,4 @@
-# 🔧 CS Toolbox – Shared Functions v3.8
+# 🔧 CS Toolbox – Shared Functions v3.9
 
 function Show-Header {
     param ([string]$Title)
@@ -98,11 +98,21 @@ function Invoke-ZipAndEmailResults {
         }
     }
 
+    if (Test-Path $logZip) {
+        Write-Host "📎 AgentLogs will be included in export ZIP." -ForegroundColor DarkGray
+    }
+
     $zipName = "ExportResults_{0}_{1}.zip" -f $env:COMPUTERNAME, (Get-Date -Format "yyyyMMdd_HHmmss")
     $zipPath = Join-Path $ExportFolder $zipName
     if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 
     Show-FolderContents -Folder $ExportFolder
+
+    Write-Host "`n🔍 Files to be zipped:" -ForegroundColor DarkGray
+    Get-ChildItem -Path $ExportFolder -File | ForEach-Object {
+        Write-Host " - $($_.Name)" -ForegroundColor Gray
+    }
+
     try {
         Compress-Archive -Path "$ExportFolder\*" -DestinationPath $zipPath -Force
         $zipSize = (Get-Item $zipPath).Length
