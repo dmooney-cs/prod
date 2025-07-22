@@ -1,6 +1,6 @@
 # ╔════════════════════════════════════════════════════════════╗
 # ║ 🌐 CS Tech Toolbox – Network Tools                         ║
-# ║ Version: N.3 – TLS 1.0, ValidateSMB, Npcap Install         ║
+# ║ Version: N.7 – Restored Working TLS/SMB Commands           ║
 # ╚════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -28,7 +28,7 @@ function Run-TLS10Scan {
     $hostname = $env:COMPUTERNAME
     $outputFile = "C:\Script-Export\TLS10Scan-$ip-$timestamp-$hostname.txt"
 
-    & $nmapPath --script ssl-enum-ciphers -p 3389 $ip | Tee-Object -FilePath $outputFile
+    & "$nmapPath" --script ssl-enum-ciphers -p 3389 $ip | Tee-Object -FilePath $outputFile
 
     Write-Host "`n✔ Scan complete. Results saved to:" -ForegroundColor Green
     Write-Host $outputFile -ForegroundColor Yellow
@@ -50,7 +50,7 @@ function Run-ValidateSMB {
     $hostname = $env:COMPUTERNAME
     $outputFile = "C:\Script-Export\ValidateSMB-$timestamp-$hostname.txt"
 
-    & $toolPath | Tee-Object -FilePath $outputFile
+    & "$toolPath" | Tee-Object -FilePath $outputFile
 
     Write-Host "`n✔ SMB results saved to:" -ForegroundColor Green
     Write-Host $outputFile -ForegroundColor Yellow
@@ -69,12 +69,11 @@ function Run-InstallNpcap {
     }
 
     Write-Host "⬇ Downloading Npcap..."
-    Invoke-WebRequest -Uri $url -OutFile $installer
+    Invoke-WebRequest -Uri $url -OutFile $installer -ErrorAction Stop
 
     if (Test-Path $installer) {
         Write-Host "⚙ Installing Npcap silently..."
         Start-Process -FilePath $installer -ArgumentList "/S" -Wait
-
         Write-Host "`n✔ Npcap installation attempted. You may verify manually." -ForegroundColor Green
     } else {
         Write-Host "❌ Failed to download Npcap." -ForegroundColor Red
@@ -110,7 +109,7 @@ do {
         'C' { Run-CleanupExportFolder }
         'Q' { return }
         default {
-            Write-Host "Invalid option. Try again." -ForegroundColor Yellow
+            Write-Host "Invalid selection. Try again." -ForegroundColor Yellow
             Pause-Script
         }
     }
