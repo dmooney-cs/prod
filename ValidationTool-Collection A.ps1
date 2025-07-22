@@ -1,10 +1,12 @@
 # ╔════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Validation Tool A                     ║
-# ║ Version: A.7 – Dual-method Roaming Profile App Detection   ║
+# ║ Version: A.8 – Office, Drivers, Roaming, Extensions        ║
 # ╚════════════════════════════════════════════════════════════╝
 
-irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
+
+Write-Host "`n✅ ValidationTool-Collection A loaded successfully.`n" -ForegroundColor Green
 
 function Run-OfficeValidation {
     Clear-Host
@@ -20,7 +22,7 @@ function Run-OfficeValidation {
 function Run-DriverAudit {
     Clear-Host
     Write-Host "`n=== Installed Driver Summary ===`n" -ForegroundColor Cyan
-    $drivers = Get-WmiObject Win32_PnPSignedDriver | 
+    $drivers = Get-WmiObject Win32_PnPSignedDriver |
                Select-Object DeviceName, DriverVersion, DriverProviderName, DriverDate
     Export-Data -Object $drivers -BaseName "DriverAudit"
     Pause-Script
@@ -28,7 +30,7 @@ function Run-DriverAudit {
 
 function Run-RoamingProfileApps {
     Clear-Host
-    Write-Host "`n=== Roaming Profile Applications (Dual Method) ===`n" -ForegroundColor Cyan
+    Write-Host "`n=== Roaming Profile Applications ===`n" -ForegroundColor Cyan
     $results = @()
     $profiles = Get-WmiObject Win32_UserProfile | Where-Object { $_.Special -eq $false -and $_.LocalPath -like "C:\Users\*" }
 
