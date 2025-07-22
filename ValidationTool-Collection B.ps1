@@ -1,39 +1,69 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Validation Tool B                      ║
-# ║ Version: B.2 | 2025-07-21                                   ║
+# ║ Version: B.5 | 2025-07-22                                   ║
 # ║ Includes VC++ Detection, Windows Patching, ZIP, Cleanup     ║
 # ╚═════════════════════════════════════════════════════════════╝
 
-irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
 
 function Run-VCPPValidation {
+    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Show-Header "VC++ Redistributables + Dependency Audit"
     $results = @()
 
+    # Registry-based Redistributables
     $keys = @(
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
         "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
     )
 
     foreach ($key in $keys) {
-        Get-ChildItem $key | ForEach-Object {
-            $props = Get-ItemProperty $_.PSPath
+        Get-ChildItem $key -ErrorAction SilentlyContinue | ForEach-Object {
+            $props = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
             if ($props.DisplayName -like "*Visual C++*Redistributable*") {
                 $results += [PSCustomObject]@{
                     Type    = "Installed Redistributable"
                     Name    = $props.DisplayName
                     Version = $props.DisplayVersion
+                    Path    = ""
                 }
             }
         }
     }
 
-    Export-Data -Object $results -BaseName "VCPP_Redistributables"
+    # Binary Dependency Scan
+    $folders = @( "$env:ProgramFiles", "$env:ProgramFiles(x86)", "$env:SystemRoot\System32" )
+    $vcDlls = @("msvcr", "msvcp", "vcruntime")
+
+    foreach ($folder in $folders) {
+        if (Test-Path $folder) {
+            Get-ChildItem -Path $folder -Recurse -Include *.dll, *.exe -ErrorAction SilentlyContinue | ForEach-Object {
+                try {
+                    $strings = strings $_.FullName | Select-String -Pattern ($vcDlls -join "|")
+                    if ($strings) {
+                        $results += [PSCustomObject]@{
+                            Type    = "Binary Dependency"
+                            Name    = ($_.Name)
+                            Version = ""
+                            Path    = $_.FullName
+                        }
+                    }
+                } catch {}
+            }
+        }
+    }
+
+    if ($results.Count -gt 0) {
+        $path = Export-Data -Object $results -BaseName "VCPP_Validation"
+        Write-Host "`n📄 Exported file: $path" -ForegroundColor Cyan
+    } else {
+        Write-Host "No VC++ dependencies or redistributables found." -ForegroundColor Yellow
+    }
     Pause-Script
 }
 
 function Run-WindowsPatchCheck {
+    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Show-Header "Windows Patch Details – HotFix / WMIC / Osquery"
 
     try {
@@ -45,9 +75,9 @@ function Run-WindowsPatchCheck {
 
     try {
         $wmic = wmic qfe list full /format:csv | Out-String
-        $outFile = Get-ExportPath -BaseName "Patches_WMIC" -Ext "txt"
-        $wmic | Out-File $outFile -Encoding UTF8
-        Write-ExportPath $outFile
+        $wmicPath = Get-ExportPath -BaseName "Patches_WMIC" -Ext "txt"
+        $wmic | Out-File $wmicPath -Encoding UTF8
+        Write-ExportPath $wmicPath
     } catch {
         Write-Host "WMIC failed." -ForegroundColor Red
     }
@@ -70,41 +100,43 @@ function Run-WindowsPatchCheck {
     Pause-Script
 }
 
-function Show-CollectionMenuB {
+function Run-Zip {
+    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
+    Invoke-ZipAndEmailResults
+}
+
+function Run-Cleanup {
+    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
+    Invoke-CleanupExportFolder
+}
+
+function Show-Menu {
     Clear-Host
     Write-Host ""
     Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
     Write-Host "║   🧰 CS Tech Toolbox – Validation Tool B     ║" -ForegroundColor Cyan
     Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
-    $menu = @(
-        " [1] VC++ Redistributables + Dependency Check",
-        " [2] Windows Patch Validation (HotFix, WMIC, Osquery)",
-        " [3] Zip and Email Results",
-        " [4] Cleanup Export Folder",
-        " [Q] Quit"
-    )
-    $menu | ForEach-Object { Write-Host $_ }
+    Write-Host " [1] VC++ Redistributables + Dependency Check"
+    Write-Host " [2] Windows Patch Validation (HotFix, WMIC, Osquery)"
+    Write-Host " [3] Zip and Email Results"
+    Write-Host " [4] Cleanup Export Folder"
+    Write-Host " [Q] Quit"
+    Write-Host ""
+}
 
-    $sel = Read-Host "`nSelect an option"
-    switch ($sel) {
+do {
+    Show-Menu
+    $choice = Read-Host "Select an option"
+    switch ($choice) {
         "1" { Run-VCPPValidation }
         "2" { Run-WindowsPatchCheck }
-        "3" {
-            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
-            Invoke-ZipAndEmailResults
-        }
-        "4" {
-            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
-            Invoke-CleanupExportFolder
-        }
+        "3" { Run-Zip }
+        "4" { Run-Cleanup }
         "Q" { return }
         default {
             Write-Host "Invalid selection." -ForegroundColor Red
             Pause-Script
         }
     }
-    Show-CollectionMenuB
-}
-
-Show-CollectionMenuB
+} while ($true)
