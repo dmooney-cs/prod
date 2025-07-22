@@ -1,6 +1,6 @@
 # ╔════════════════════════════════════════════════════════════╗
 # ║ 🌐 CS Tech Toolbox – Network Tools                         ║
-# ║ Version: N.7 – Restored Working TLS/SMB Commands           ║
+# ║ Version: N.8 – TLS/SMB Restored with Exports & Common      ║
 # ╚════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -26,12 +26,18 @@ function Run-TLS10Scan {
 
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
-    $outputFile = "C:\Script-Export\TLS10Scan-$ip-$timestamp-$hostname.txt"
+    $txtPath = "C:\Script-Export\TLS10Scan-$ip-$timestamp-$hostname.txt"
 
-    & "$nmapPath" --script ssl-enum-ciphers -p 3389 $ip | Tee-Object -FilePath $outputFile
+    & "$nmapPath" --script ssl-enum-ciphers -p 3389 $ip | Tee-Object -FilePath $txtPath
 
-    Write-Host "`n✔ Scan complete. Results saved to:" -ForegroundColor Green
-    Write-Host $outputFile -ForegroundColor Yellow
+    $result = [PSCustomObject]@{
+        Hostname   = $hostname
+        TargetIP   = $ip
+        Timestamp  = $timestamp
+        OutputFile = $txtPath
+    }
+
+    Export-Data -Object $result -BaseName "TLS10Scan"
     Pause-Script
 }
 
@@ -48,12 +54,17 @@ function Run-ValidateSMB {
 
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
-    $outputFile = "C:\Script-Export\ValidateSMB-$timestamp-$hostname.txt"
+    $txtPath = "C:\Script-Export\ValidateSMB-$timestamp-$hostname.txt"
 
-    & "$toolPath" | Tee-Object -FilePath $outputFile
+    & "$toolPath" | Tee-Object -FilePath $txtPath
 
-    Write-Host "`n✔ SMB results saved to:" -ForegroundColor Green
-    Write-Host $outputFile -ForegroundColor Yellow
+    $result = [PSCustomObject]@{
+        Hostname   = $hostname
+        Timestamp  = $timestamp
+        OutputFile = $txtPath
+    }
+
+    Export-Data -Object $result -BaseName "ValidateSMB"
     Pause-Script
 }
 
