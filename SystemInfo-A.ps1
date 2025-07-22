@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – System Info A                         ║
-# ║ Version: 1.0 | 2025-07-21                                  ║
+# ║ Version: 1.1 | 2025-07-21                                  ║
 # ║ Checks: Firewall, Defender, Disk + SMART, ZIP, Cleanup     ║
 # ╚═════════════════════════════════════════════════════════════╝
 
@@ -9,27 +9,48 @@ Ensure-ExportFolder
 
 function Run-FirewallDefenderCheck {
     Show-Header "Firewall & Defender Status"
-    $fw = Get-NetFirewallProfile | Select-Object Name, Enabled, DefaultInboundAction, DefaultOutboundAction
-    $def = Get-MpComputerStatus | Select-Object AMServiceEnabled, RealTimeProtectionEnabled, AntivirusEnabled, AntivirusSignatureVersion
-
     $results = @()
-    $fw | ForEach-Object {
+
+    try {
+        $fw = Get-NetFirewallProfile | Select-Object Name, Enabled, DefaultInboundAction, DefaultOutboundAction
+        foreach ($profile in $fw) {
+            $results += [PSCustomObject]@{
+                Category = "Firewall"
+                Profile  = $profile.Name
+                Enabled  = $profile.Enabled
+                Inbound  = $profile.DefaultInboundAction
+                Outbound = $profile.DefaultOutboundAction
+            }
+        }
+    } catch {
         $results += [PSCustomObject]@{
             Category = "Firewall"
-            Profile  = $_.Name
-            Enabled  = $_.Enabled
-            Inbound  = $_.DefaultInboundAction
-            Outbound = $_.DefaultOutboundAction
+            Profile  = "All"
+            Enabled  = "Error"
+            Inbound  = "-"
+            Outbound = "-"
         }
     }
 
-    $results += [PSCustomObject]@{
-        Category  = "Defender"
-        Profile   = "N/A"
-        Enabled   = $def.AMServiceEnabled
-        Inbound   = "RealTime: $($def.RealTimeProtectionEnabled)"
-        Outbound  = "AV: $($def.AntivirusEnabled)"
-        Signature = $def.AntivirusSignatureVersion
+    try {
+        $def = Get-MpComputerStatus
+        $results += [PSCustomObject]@{
+            Category  = "Defender"
+            Profile   = "N/A"
+            Enabled   = $def.AMServiceEnabled
+            Inbound   = "RealTime: $($def.RealTimeProtectionEnabled)"
+            Outbound  = "AV: $($def.AntivirusEnabled)"
+            Signature = $def.AntivirusSignatureVersion
+        }
+    } catch {
+        $results += [PSCustomObject]@{
+            Category  = "Defender"
+            Profile   = "N/A"
+            Enabled   = "Unavailable"
+            Inbound   = "-"
+            Outbound  = "-"
+            Signature = "-"
+        }
     }
 
     Export-Data -Object $results -BaseName "Firewall_Defender_Status"
@@ -57,7 +78,7 @@ function Run-DiskAndSMARTStatus {
             }
         }
     } catch {
-        $smart = [PSCustomObject]@{ Drive = "Unavailable"; PredictFailure = "WMI Error" }
+        $smart = @([PSCustomObject]@{ Drive = "Unavailable"; PredictFailure = "WMI Error" })
     }
 
     Export-Data -Object $drives -BaseName "Disk_Space_Usage"
@@ -85,8 +106,14 @@ function Show-SystemInfoAMenu {
     switch ($sel) {
         "1" { Run-FirewallDefenderCheck }
         "2" { Run-DiskAndSMARTStatus }
-        "3" { Invoke-ZipAndEmailResults }
-        "4" { Invoke-CleanupExportFolder }
+        "3" {
+            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+            Invoke-ZipAndEmailResults
+        }
+        "4" {
+            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+            Invoke-CleanupExportFolder
+        }
         "Q" { return }
         default { Write-Host "Invalid selection." -ForegroundColor Red; Pause-Script }
     }
@@ -94,4 +121,3 @@ function Show-SystemInfoAMenu {
 }
 
 Show-SystemInfoAMenu
-<Recovered System Info A>
