@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
-# ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 1.2 | Fixed version detection from EXE metadata   ║
+# ║ 🧰 CS Tech Toolbox – Agent Installer Tool                  ║
+# ║ Version: 1.3 | Detects version, includes install menu       ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -10,8 +10,23 @@ if (-not (Test-Path $TempDir)) {
     New-Item -Path $TempDir -ItemType Directory | Out-Null
 }
 
+$installer = "$TempDir\cybercnsagent.exe"
+$agentUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
+$detectedVersion = "Unknown"
+
+# Download and detect version before menu
+try {
+    Invoke-WebRequest -Uri $agentUrl -OutFile $installer -UseBasicParsing
+    if (Test-Path $installer) {
+        $versionInfo = (Get-Item $installer).VersionInfo
+        $detectedVersion = $versionInfo.ProductVersion
+    }
+} catch {
+    Write-Host "⚠️ Could not download agent or detect version." -ForegroundColor Yellow
+}
+
 function Run-AgentInstaller {
-    Show-Header "CyberCNS Agent Installer"
+    Show-Header "CyberCNS Agent - INSTALL"
 
     $company = Read-Host "Enter Company ID"
     $tenant  = Read-Host "Enter Tenant ID"
@@ -21,30 +36,13 @@ function Run-AgentInstaller {
     $hostname = $env:COMPUTERNAME
     $logFile = "$ExportFolder\AgentInstall-Log-$timestamp-$hostname.txt"
     $summaryPath = "$ExportFolder\AgentInstall-Summary-$timestamp-$hostname.csv"
-    $installer = "$TempDir\cybercnsagent.exe"
-    $agentUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
-    $version = "Unknown"
+    $version = $detectedVersion
+    $result = "Not Run"
 
     Start-Transcript -Path $logFile -Force
 
-    Write-Host "`n📥 Downloading latest agent..."
-    $downloaded = $false
-    try {
-        Invoke-WebRequest -Uri $agentUrl -OutFile $installer -UseBasicParsing
-        Write-Host "✅ Agent downloaded to: $installer" -ForegroundColor Green
-        $downloaded = $true
-
-        if (Test-Path $installer) {
-            $versionInfo = (Get-Item $installer).VersionInfo
-            $version = $versionInfo.ProductVersion
-            Write-Host "📦 Detected agent version: $version" -ForegroundColor Cyan
-        }
-    } catch {
-        Write-Host "❌ Failed to download agent." -ForegroundColor Red
-        $version = "Download failed"
-    }
-
-    if ($downloaded -and (Test-Path $installer)) {
+    if (Test-Path $installer) {
+        Write-Host "📦 Detected agent version: $version" -ForegroundColor Cyan
         $installCmd = "`"$installer`" -c $company -e $tenant -j $secret -i"
         Write-Host "`n📦 Installing agent with command:" -ForegroundColor Cyan
         Write-Host "$installCmd" -ForegroundColor Yellow
@@ -59,6 +57,7 @@ function Run-AgentInstaller {
             $result = "Install failed"
         }
     } else {
+        Write-Host "❌ Installer not found. Cannot proceed." -ForegroundColor Red
         $result = "Download failed"
     }
 
@@ -79,17 +78,34 @@ function Run-AgentInstaller {
     Pause-Script
 }
 
+function Run-AgentReinstall {
+    Show-Header "CyberCNS Agent - REINSTALL"
+    Write-Host "⚠️ This option will be implemented in a separate script." -ForegroundColor Yellow
+    Write-Host "Please upload and link 'Agent-Reinstall.ps1' when ready." -ForegroundColor DarkGray
+    Pause-Script
+}
+
+function Run-AgentUninstall {
+    Show-Header "CyberCNS Agent - UNINSTALL"
+    Write-Host "⚠️ This option will be implemented in a separate script." -ForegroundColor Yellow
+    Write-Host "Please upload and link 'Agent-Uninstall.ps1' when ready." -ForegroundColor DarkGray
+    Pause-Script
+}
+
 function Show-AgentInstallerMenu {
     Clear-Host
     Write-Host ""
-    Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║   🧰 CS Tech Toolbox – Agent Installer      ║" -ForegroundColor Cyan
-    Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "╔════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "║   🧰 CS Tech Toolbox – Agent Installer Menu         ║" -ForegroundColor Cyan
+    Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
+    Write-Host "Detected Agent Version: $detectedVersion" -ForegroundColor Magenta
+    Write-Host ""
+
     $menu = @(
         " [1] Install CyberCNS Agent",
-        " [2] Zip and Email Export Folder",
-        " [3] Cleanup Export Folder",
+        " [2] Reinstall Agent (external)",
+        " [3] Uninstall Agent (external)",
         " [Q] Quit"
     )
     $menu | ForEach-Object { Write-Host $_ }
@@ -97,8 +113,8 @@ function Show-AgentInstallerMenu {
     $sel = Read-Host "`nSelect an option"
     switch ($sel) {
         "1" { Run-AgentInstaller }
-        "2" { Invoke-ZipAndEmailResults }
-        "3" { Invoke-CleanupExportFolder }
+        "2" { Run-AgentReinstall }
+        "3" { Run-AgentUninstall }
         "Q" { return }
         default { Write-Host "Invalid selection." -ForegroundColor Red; Pause-Script }
     }
