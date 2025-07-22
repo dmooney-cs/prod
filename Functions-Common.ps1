@@ -1,4 +1,4 @@
-# 🔧 CS Toolbox – Shared Functions v3.9
+# 🔧 CS Toolbox – Shared Functions v3.10
 
 function Show-Header {
     param ([string]$Title)
@@ -83,17 +83,12 @@ function Invoke-ZipAndEmailResults {
         $logAnswer = Read-Host "Include local agent logs from '$logsPath' in export? (Y/N)"
         if ($logAnswer -eq "Y") {
             $logStamp = Get-Date -Format "yyyyMMdd_HHmmss"
-            $logZip = Join-Path $ExportFolder "AgentLogs_$logStamp.zip"
+            $logZip = "C:\Script-Export\AgentLogs_$logStamp.zip"
             try {
-                $logTemp = Join-Path $env:TEMP "LogsToZip"
-                if (Test-Path $logTemp) { Remove-Item $logTemp -Recurse -Force -ErrorAction SilentlyContinue }
-                Copy-Item "$logsPath\*" -Destination $logTemp -Recurse -Force -ErrorAction SilentlyContinue
-                Compress-Archive -Path "$logTemp\*" -DestinationPath $logZip -Force
-                Remove-Item $logTemp -Recurse -Force -ErrorAction SilentlyContinue
-                Write-Host "✅ Logs compressed: $logZip" -ForegroundColor Green
+                Compress-Archive -Path "$logsPath\*" -DestinationPath $logZip -Force -ErrorAction SilentlyContinue
+                Write-Host "✅ Logs zipped to $logZip" -ForegroundColor Green
             } catch {
-                Write-Host "❌ Failed to zip logs: $_" -ForegroundColor Red
-                $logZip = ""
+                Write-Host "⚠️ Failed to zip some log files. Continuing." -ForegroundColor Yellow
             }
         }
     }
