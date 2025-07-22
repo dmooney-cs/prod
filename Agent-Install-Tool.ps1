@@ -1,10 +1,11 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 1.7 | Uses redirected agent link correctly         ║
+# ║ Version: 1.8 | Exact match to one-liner install behavior    ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
+
 $TempDir = "C:\Script-Temp"
 if (-not (Test-Path $TempDir)) {
     New-Item -Path $TempDir -ItemType Directory | Out-Null
@@ -22,46 +23,34 @@ function Run-AgentInstaller {
     $logFile = "$ExportFolder\AgentInstall-Log-$timestamp-$hostname.txt"
     $summaryPath = "$ExportFolder\AgentInstall-Summary-$timestamp-$hostname.csv"
     $installer = "$TempDir\cybercnsagent.exe"
-    $agentLinkApi = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
+    $agentApiUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
     $result = "Not Run"
-    $version = "Unknown"
 
     Start-Transcript -Path $logFile -Force
 
     try {
-        Write-Host "`n🔍 Resolving latest agent download URL..."
-        $resolvedUrl = Invoke-RestMethod -Method Get -Uri $agentLinkApi
-        Write-Host "➡ Resolved to: $resolvedUrl" -ForegroundColor Gray
+        Write-Host "`n🔒 Setting TLS 1.2..." -ForegroundColor DarkGray
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-        Write-Host "`n📥 Downloading agent from resolved URL..."
-        Invoke-WebRequest -Uri $resolvedUrl -OutFile $installer -UseBasicParsing
+        Write-Host "`n🔍 Resolving agent download link..."
+        $source = Invoke-RestMethod -Method Get -Uri $agentApiUrl
+        Write-Host "➡ Download URL: $source" -ForegroundColor Gray
 
-        $size = (Get-Item $installer).Length
-        Write-Host "📦 Downloaded file size: $size bytes"
-
-        if ($size -lt 100000) {
-            Write-Host "❌ Downloaded file is too small — likely invalid." -ForegroundColor Red
-            throw "Agent installer integrity check failed."
-        }
-
-        Write-Host "✅ Agent downloaded to: $installer" -ForegroundColor Green
+        Write-Host "`n📥 Downloading agent to: $installer"
+        Invoke-WebRequest -Uri $source -OutFile $installer -UseBasicParsing
+        Write-Host "✅ Agent downloaded successfully." -ForegroundColor Green
 
         $installCmd = "`"$installer`" -c $company -e $tenant -j $secret -i"
-        Write-Host "`n📦 Installing agent with command:" -ForegroundColor Cyan
+        Write-Host "`n🚀 Installing with command:" -ForegroundColor Cyan
         Write-Host "$installCmd" -ForegroundColor Yellow
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 2
 
-        try {
-            Start-Process -FilePath $installer -ArgumentList "-c $company -e $tenant -j $secret -i" -Wait
-            Write-Host "`n✅ Agent installed successfully." -ForegroundColor Green
-            $result = "Success"
-        } catch {
-            Write-Host "`n❌ Agent install failed." -ForegroundColor Red
-            $result = "Install failed"
-        }
+        Start-Process -FilePath $installer -ArgumentList "-c $company -e $tenant -j $secret -i" -Wait
+        Write-Host "`n✅ Agent installed successfully." -ForegroundColor Green
+        $result = "Success"
     } catch {
-        Write-Host "❌ Download or install failed: $_" -ForegroundColor Red
-        $result = "Download or validation failed"
+        Write-Host "`n❌ Installation failed: $_" -ForegroundColor Red
+        $result = "Failed"
     }
 
     $summary = [PSCustomObject]@{
@@ -69,9 +58,9 @@ function Run-AgentInstaller {
         Hostname     = $hostname
         CompanyID    = $company
         TenantID     = $tenant
-        AgentVersion = $version
         Result       = $result
     }
+
     $summary | Export-Csv -Path $summaryPath -NoTypeInformation -Encoding UTF8
     Write-ExportPath $summaryPath
 
@@ -84,14 +73,12 @@ function Run-AgentInstaller {
 function Run-AgentReinstall {
     Show-Header "CyberCNS Agent - REINSTALL"
     Write-Host "⚠️ This option will be implemented in a separate script." -ForegroundColor Yellow
-    Write-Host "Please upload and link 'Agent-Reinstall.ps1' when ready." -ForegroundColor DarkGray
     Pause-Script
 }
 
 function Run-AgentUninstall {
     Show-Header "CyberCNS Agent - UNINSTALL"
     Write-Host "⚠️ This option will be implemented in a separate script." -ForegroundColor Yellow
-    Write-Host "Please upload and link 'Agent-Uninstall.ps1' when ready." -ForegroundColor DarkGray
     Pause-Script
 }
 
