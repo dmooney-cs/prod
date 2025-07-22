@@ -68,7 +68,7 @@ function Show-FolderContents {
     if (Test-Path $Folder) {
         $files = Get-ChildItem $Folder -File
         if ($files) {
-            Write-Host ("📂 Contents of $Folder:") -ForegroundColor Gray
+            Write-Host "📂 Contents of ${Folder}:" -ForegroundColor Gray
             $files | ForEach-Object {
                 "{0,-40} {1,10:N0} bytes" -f $_.Name, $_.Length
             } | Write-Host -ForegroundColor DarkGray
