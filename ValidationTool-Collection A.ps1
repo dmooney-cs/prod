@@ -1,3 +1,10 @@
+# ╔═════════════════════════════════════════════════════════════╗
+# ║ 🧰 CS Tech Toolbox – Validation Tool A                      ║
+# ║ Version: A.4 – Safe Inline Loader, No Nested IRM Calls      ║
+# ╚═════════════════════════════════════════════════════════════╝
+
+# Load shared functions once
+irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
 
 function Run-OfficeValidation {
@@ -8,7 +15,6 @@ function Run-OfficeValidation {
             Select-Object DisplayName, DisplayVersion, Publisher, InstallDate
 
     if ($apps) {
-        irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
         $path = Export-Data -Object $apps -BaseName "OfficeAudit"
         Write-Host "`n📄 Exported file: $path" -ForegroundColor Cyan
     } else {
@@ -23,7 +29,6 @@ function Run-DriverAudit {
                Select-Object DeviceName, DriverVersion, DriverProviderName, DriverDate
 
     if ($drivers) {
-        irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
         $path = Export-Data -Object $drivers -BaseName "DriverAudit"
         Write-Host "`n📄 Exported file: $path" -ForegroundColor Cyan
     } else {
@@ -62,7 +67,6 @@ function Run-RoamingProfileApps {
     }
 
     if ($results.Count -gt 0) {
-        irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
         $path = Export-Data -Object $results -BaseName "RoamingApps"
         Write-Host "`n📄 Exported file: $path" -ForegroundColor Cyan
     } else {
@@ -100,7 +104,6 @@ function Run-BrowserExtensionDetails {
     }
 
     if ($results.Count -gt 0) {
-        irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
         $path = Export-Data -Object $results -BaseName "BrowserExtensions"
         Write-Host "`n📄 Exported file: $path" -ForegroundColor Cyan
     } else {
@@ -110,26 +113,28 @@ function Run-BrowserExtensionDetails {
 }
 
 function Run-ZipAndEmailResults {
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Invoke-ZipAndEmailResults
 }
 
 function Run-CleanupExportFolder {
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Invoke-CleanupExportFolder
 }
 
 function Show-ValidationMenuA {
     Clear-Host
     Write-Host ""
-    Write-Host "1. Validate Microsoft Office Installations"
-    Write-Host "2. Audit Installed Drivers"
-    Write-Host "3. Scan Roaming Profiles for Applications"
-    Write-Host "4. Detect Browser Extensions (Chrome, Edge, Firefox)"
+    Write-Host "╔═══════════════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "║     🧩 Validation Tool A – App + Driver Checks     ║" -ForegroundColor Cyan
+    Write-Host "╚═══════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "Z. Zip and Email Results"
-    Write-Host "C. Cleanup Export Folder"
-    Write-Host "Q. Quit"
+    Write-Host " [1] Validate Microsoft Office Installations"
+    Write-Host " [2] Audit Installed Drivers"
+    Write-Host " [3] Scan Roaming Profiles for Applications"
+    Write-Host " [4] Detect Browser Extensions (Chrome, Edge, Firefox)"
+    Write-Host ""
+    Write-Host " [Z] Zip and Email Results"
+    Write-Host " [C] Cleanup Export Folder"
+    Write-Host " [Q] Quit"
     Write-Host ""
 }
 
@@ -146,7 +151,6 @@ do {
         'Q' { return }
         default {
             Write-Host "Invalid selection. Try again." -ForegroundColor Yellow
-            irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
             Pause-Script
         }
     }
