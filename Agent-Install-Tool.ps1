@@ -31,7 +31,46 @@ function Run-AgentInstall {
 
         $choice = Read-Host "Do you want to uninstall first using the advanced tool? (Y/N)"
         if ($choice -match "^[Yy]$") {
-            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Uninstall-CyberCNSAgentV4.ps1 | iex
+            Write-Host "`n🧪 Step 1/2: Preparing uninstall script..." -ForegroundColor Cyan
+            $uninstallPath = "C:\\Script-Temp\\uninstall.bat"
+            $sourcePath = "C:\\Program Files (x86)\\CyberCNSAgent\\uninstall.bat"
+
+            if (Test-Path $sourcePath) {
+                Copy-Item $sourcePath $uninstallPath -Force
+                Write-Host "🗂️ uninstall.bat copied from local agent folder." -ForegroundColor Yellow
+            } else {
+                try {
+                    Invoke-WebRequest -Uri "https://example.com/uninstall.bat" -OutFile $uninstallPath -UseBasicParsing -ErrorAction Stop
+                    Write-Host "🗂️ uninstall.bat downloaded from fallback URL." -ForegroundColor Yellow
+                } catch {
+                    Write-Host "⚠️  Failed to fetch from URL. Using cached batch content." -ForegroundColor Yellow
+                    $batContent = @"
+@echo off
+ping 127.0.0.1 -n 6 > nul
+cd "C:\PROGRA~2"
+sc stop ConnectSecureAgentMonitor
+timeout /T 5 > nul
+sc delete ConnectSecureAgentMonitor
+timeout /T 5 > nul
+sc stop CyberCNSAgent
+timeout /T 5 > nul
+sc delete CyberCNSAgent
+ping 127.0.0.1 -n 6 > nul
+taskkill /IM osqueryi.exe /F
+taskkill /IM nmap.exe /F
+taskkill /IM cyberutilities.exe /F
+CyberCNSAgent\cybercnsagent.exe --internalAssetArgument uninstallservice
+reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ConnectSecure Agent" /f
+reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ConnectSecure Agent" /f
+rmdir CyberCNSAgent /s /q
+"@
+                    $batContent | Out-File -FilePath $uninstallPath -Encoding ASCII -Force
+                    Write-Host "🗂️ uninstall.bat written from local cache." -ForegroundColor Yellow
+                }
+            }
+
+            Write-Host "🧪 Step 2/2: Running uninstall..." -ForegroundColor Cyan
+            cmd.exe /c $uninstallPath
         } else {
             Pause-Script "Install aborted. Press any key to return."
             return
