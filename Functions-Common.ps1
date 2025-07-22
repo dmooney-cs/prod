@@ -1,4 +1,4 @@
-# 🔧 CS Toolbox – Shared Functions v3.7 (Safe for irm | iex)
+# 🔧 CS Toolbox – Shared Functions v3.8
 
 function Show-Header {
     param ([string]$Title)
@@ -85,7 +85,11 @@ function Invoke-ZipAndEmailResults {
             $logStamp = Get-Date -Format "yyyyMMdd_HHmmss"
             $logZip = Join-Path $ExportFolder "AgentLogs_$logStamp.zip"
             try {
-                Compress-Archive -Path "$logsPath\*" -DestinationPath $logZip -Force
+                $logTemp = Join-Path $env:TEMP "LogsToZip"
+                if (Test-Path $logTemp) { Remove-Item $logTemp -Recurse -Force -ErrorAction SilentlyContinue }
+                Copy-Item "$logsPath\*" -Destination $logTemp -Recurse -Force -ErrorAction SilentlyContinue
+                Compress-Archive -Path "$logTemp\*" -DestinationPath $logZip -Force
+                Remove-Item $logTemp -Recurse -Force -ErrorAction SilentlyContinue
                 Write-Host "✅ Logs compressed: $logZip" -ForegroundColor Green
             } catch {
                 Write-Host "❌ Failed to zip logs: $_" -ForegroundColor Red
