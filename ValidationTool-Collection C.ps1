@@ -1,16 +1,18 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Validation Tool C                      ║
-# ║ Version: C.2 | 2025-07-21                                   ║
+# ║ Version: C.3 | 2025-07-22                                   ║
 # ║ Includes OSQuery + TLS Cipher + ZIP + Cleanup              ║
 # ╚═════════════════════════════════════════════════════════════╝
 
-irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
 
 function Run-OSQueryBrowserExtensions {
+    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Show-Header "OSQuery Browser Extensions Audit"
+
     $paths = @("C:\Program Files (x86)\CyberCNSAgent\osqueryi.exe", "C:\Windows\CyberCNSAgent\osqueryi.exe")
     $osquery = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
     if (-not $osquery) {
         Write-Host "OSQuery not found." -ForegroundColor Red
         Pause-Script; return
@@ -37,11 +39,14 @@ ORDER BY users.username, chrome_extensions.name;
     } catch {
         Write-Host "OSQuery execution failed." -ForegroundColor Red
     }
+
     Pause-Script
 }
 
 function Run-SSLCipherValidation {
+    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Show-Header "SSL Cipher Validation (Nmap Port 443)"
+
     $nmap = "C:\Program Files (x86)\CyberCNSAgent\nmap\nmap.exe"
     if (-not (Test-Path $nmap)) {
         Write-Host "Nmap not found at: $nmap" -ForegroundColor Red
@@ -62,41 +67,43 @@ function Run-SSLCipherValidation {
     Pause-Script
 }
 
-function Show-CollectionMenuC {
+function Run-Zip {
+    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
+    Invoke-ZipAndEmailResults
+}
+
+function Run-Cleanup {
+    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
+    Invoke-CleanupExportFolder
+}
+
+function Show-Menu {
     Clear-Host
     Write-Host ""
     Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
     Write-Host "║   🧰 CS Tech Toolbox – Collection Tool C     ║" -ForegroundColor Cyan
     Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
-    $menu = @(
-        " [1] OSQuery Browser Extensions",
-        " [2] SSL Cipher Validation (443)",
-        " [3] Zip and Email Results",
-        " [4] Cleanup Export Folder",
-        " [Q] Quit"
-    )
-    $menu | ForEach-Object { Write-Host $_ }
+    Write-Host " [1] OSQuery Browser Extensions"
+    Write-Host " [2] SSL Cipher Validation (443)"
+    Write-Host " [3] Zip and Email Results"
+    Write-Host " [4] Cleanup Export Folder"
+    Write-Host " [Q] Quit"
+    Write-Host ""
+}
 
-    $sel = Read-Host "`nSelect an option"
+do {
+    Show-Menu
+    $sel = Read-Host "Select an option"
     switch ($sel) {
         "1" { Run-OSQueryBrowserExtensions }
         "2" { Run-SSLCipherValidation }
-        "3" {
-            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
-            Invoke-ZipAndEmailResults
-        }
-        "4" {
-            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
-            Invoke-CleanupExportFolder
-        }
+        "3" { Run-Zip }
+        "4" { Run-Cleanup }
         "Q" { return }
         default {
             Write-Host "Invalid selection." -ForegroundColor Red
             Pause-Script
         }
     }
-    Show-CollectionMenuC
-}
-
-Show-CollectionMenuC
+} while ($true)
