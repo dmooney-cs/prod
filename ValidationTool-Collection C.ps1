@@ -1,1 +1,1 @@
-<Optimized Tool C>
+<Recovered Collection C>
