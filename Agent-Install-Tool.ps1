@@ -2,7 +2,7 @@
 #   ConnectSecure Agent Install Utility
 # ==========================================
 
-irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+. ([scriptblock]::Create((irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 -UseBasicParsing)))
 Ensure-ExportFolder
 Show-Header "ConnectSecure Agent Install Utility"
 
@@ -11,7 +11,8 @@ function Run-AgentInstall {
     $hn = $env:COMPUTERNAME
     $log = @()
     $baseName = "AgentInstallLog_$ts`_$hn"
-    $txtPath = "$env:TEMP\\$baseName.txt"
+    $txtPath = "C:\\Script-Temp\\$baseName.txt"
+    if (-not (Test-Path "C:\\Script-Temp")) { New-Item -Path "C:\\Script-Temp" -ItemType Directory | Out-Null }
     Start-Transcript -Path $txtPath -Append
 
     # Check for existing services
@@ -40,10 +41,10 @@ function Run-AgentInstall {
     $tenant  = Read-Host "Enter Tenant ID"
     $key     = Read-Host "Enter Secret Key"
 
-    # Download agent from resolved plain-text URL
+    # Download agent
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $downloadUrl = (Invoke-WebRequest -Uri "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows" -UseBasicParsing).Content
-    $agentPath = "$env:TEMP\\cybercnsagent.exe"
+    $agentPath = "C:\\Script-Temp\\cybercnsagent.exe"
 
     Write-Host "`n⬇️ Downloading agent from:" -ForegroundColor Cyan
     Write-Host $downloadUrl -ForegroundColor Gray
@@ -75,6 +76,11 @@ function Run-AgentInstall {
 
     Run-ZipAndEmailResults
     Run-CleanupExportFolder
+
+    if (Test-Path $agentPath) {
+        Remove-Item $agentPath -Force -ErrorAction SilentlyContinue
+        Write-Host "`n🧹 Cleaned up installer from: $agentPath" -ForegroundColor DarkGray
+    }
 
     Pause-Script "Install routine complete. Press any key to close."
     Stop-Transcript
