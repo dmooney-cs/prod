@@ -1,5 +1,5 @@
 # ╔══════════════════════════════════════════════════════════════════╗
-# ║ 🚀 Agent Install Utility - Reinstall Aware                       ║
+# ║ 🚀 Agent Install Utility - Reinstall Aware (Fixed)               ║
 # ╚══════════════════════════════════════════════════════════════════╝
 
 . { iwr -useb "https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1" } | iex
@@ -40,16 +40,19 @@ function Run-AgentInstall {
     $tenant  = Read-Host "Enter Tenant ID"
     $key     = Read-Host "Enter Secret Key"
 
-    # Download latest agent
-    $agentUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
+    # Download agent using resolved URL
+    $agentMetaUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
     $agentPath = "$env:TEMP\cybercnsagent.exe"
     try {
-        Write-Host "`n⬇️ Downloading agent from API..." -ForegroundColor Cyan
-        Invoke-WebRequest -Uri $agentUrl -OutFile $agentPath -UseBasicParsing -TimeoutSec 30
+        Write-Host "`n🔎 Resolving agent download URL..." -ForegroundColor Cyan
+        $agentMeta = Invoke-RestMethod -Uri $agentMetaUrl -UseBasicParsing
+        $agentUrl = $agentMeta.agentDownloadURL
+        Write-Host "⬇️ Downloading from: $agentUrl" -ForegroundColor DarkGray
+        Invoke-WebRequest -Uri $agentUrl -OutFile $agentPath -UseBasicParsing
         Write-Host "✅ Agent downloaded to $agentPath" -ForegroundColor Green
         $log += [PSCustomObject]@{ Step = "Download Agent"; Status = "Success"; Path = $agentPath; Time = $ts }
     } catch {
-        Write-Host "❌ Failed to download agent: $_" -ForegroundColor Red
+        Write-Host "❌ Failed to resolve/download agent: $_" -ForegroundColor Red
         $log += [PSCustomObject]@{ Step = "Download Agent"; Status = "Failed: $_"; Time = $ts }
         return
     }
