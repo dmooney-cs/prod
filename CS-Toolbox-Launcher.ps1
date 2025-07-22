@@ -28,7 +28,7 @@ function Show-LauncherMenu {
 
     $choice = Read-Host "Select an option"
     switch ($choice) {
-        "1" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-CollectionA-Fixed.ps1 | iex }
+        "1" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-Collection%20A.ps1 | iex }
         "2" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-Collection%20B.ps1 | iex }
         "3" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-Collection%20C.ps1 | iex }
         "4" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-AD.ps1 | iex }
