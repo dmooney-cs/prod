@@ -85,4 +85,3 @@ function Show-LauncherMenu {
 }
 
 Show-LauncherMenu
-
