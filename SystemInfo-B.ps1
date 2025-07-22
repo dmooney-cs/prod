@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – System Info B                         ║
-# ║ Version: 1.0 | 2025-07-21                                  ║
+# ║ Version: 1.1 | 2025-07-21                                  ║
 # ║ Checks: Reboot Status, Logs, Startup, ZIP, Cleanup         ║
 # ╚═════════════════════════════════════════════════════════════╝
 
@@ -99,9 +99,14 @@ function Show-SystemInfoBMenu {
     switch ($sel) {
         "1" { Run-PendingRebootCheck }
         "2" { Run-EventLogSummary }
-        "3" { Run-StartupAudit }
-        "4" { Invoke-ZipAndEmailResults }
-        "5" { Invoke-CleanupExportFolder }
+        "3" {
+            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+            Invoke-ZipAndEmailResults
+        }
+        "4" {
+            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+            Invoke-CleanupExportFolder
+        }
         "Q" { return }
         default { Write-Host "Invalid selection." -ForegroundColor Red; Pause-Script }
     }
@@ -109,4 +114,3 @@ function Show-SystemInfoBMenu {
 }
 
 Show-SystemInfoBMenu
-<Recovered System Info B>
