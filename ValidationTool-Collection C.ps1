@@ -15,7 +15,8 @@ function Run-OSQueryBrowserExtensions {
 
     if (-not $osquery) {
         Write-Host "OSQuery not found." -ForegroundColor Red
-        Pause-Script; return
+        Pause-Script
+        return
     }
 
     $query = @"
@@ -49,7 +50,8 @@ function Run-SSLCipherValidation {
     $nmap = "C:\Program Files (x86)\CyberCNSAgent\nmap\nmap.exe"
     if (-not (Test-Path $nmap)) {
         Write-Host "Nmap not found at: $nmap" -ForegroundColor Red
-        Pause-Script; return
+        Pause-Script
+        return
     }
 
     $ip = Read-Host "Enter target IP for scan"
