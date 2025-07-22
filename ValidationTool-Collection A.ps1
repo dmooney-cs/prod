@@ -1,6 +1,6 @@
 # ╔════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Validation Tool A                     ║
-# ║ Version: A.4 – Office, Drivers, Roaming, Extensions        ║
+# ║ Version: A.7 – Dual-method Roaming Profile App Detection   ║
 # ╚════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -8,7 +8,7 @@ Ensure-ExportFolder
 
 function Run-OfficeValidation {
     Clear-Host
-    Write-Host "`n=== Office Installation Audit ===`n" -ForegroundColor Cyan
+    Write-Host "`n=== Microsoft Office Installations ===`n" -ForegroundColor Cyan
     $apps = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, `
                               HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue |
             Where-Object { $_.DisplayName -match "Office|Microsoft 365|Word|Excel|Outlook" } |
@@ -28,24 +28,34 @@ function Run-DriverAudit {
 
 function Run-RoamingProfileApps {
     Clear-Host
-    Write-Host "`n=== Roaming Profile Applications ===`n" -ForegroundColor Cyan
-    $users = Get-ChildItem 'HKU:\' | Where-Object { $_.Name -match '^HKEY_USERS\\S-\d-\d+-(\d+-){1,14}\d+$' }
-    $results = foreach ($user in $users) {
-        $sid = $user.PSChildName
+    Write-Host "`n=== Roaming Profile Applications (Dual Method) ===`n" -ForegroundColor Cyan
+    $results = @()
+    $profiles = Get-WmiObject Win32_UserProfile | Where-Object { $_.Special -eq $false -and $_.LocalPath -like "C:\Users\*" }
+
+    foreach ($profile in $profiles) {
+        $username = ($profile.LocalPath -split '\\')[-1]
+        $sid = $profile.SID
+        $profileType = if ($profile.RoamingConfigured) { "Roaming" } elseif ($profile.Loaded) { "Active" } else { "Local/Old" }
         $keyPath = "Registry::HKEY_USERS\$sid\Software\Microsoft\Windows\CurrentVersion\Uninstall\"
+
         if (Test-Path $keyPath) {
             Get-ChildItem $keyPath -ErrorAction SilentlyContinue | ForEach-Object {
-                $app = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
-                if ($app.DisplayName) {
-                    [PSCustomObject]@{
-                        SID     = $sid
-                        AppName = $app.DisplayName
-                        Version = $app.DisplayVersion
+                try {
+                    $app = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+                    if ($app.DisplayName) {
+                        $results += [PSCustomObject]@{
+                            SID         = $sid
+                            User        = $username
+                            ProfileType = $profileType
+                            AppName     = $app.DisplayName
+                            Version     = $app.DisplayVersion
+                        }
                     }
-                }
+                } catch {}
             }
         }
     }
+
     Export-Data -Object $results -BaseName "RoamingApps"
     Pause-Script
 }
@@ -113,7 +123,7 @@ do {
         'Q' { return }
         default {
             Write-Host "Invalid selection. Try again." -ForegroundColor Yellow
-            Pause
+            Pause-Script
         }
     }
 } while ($true)
