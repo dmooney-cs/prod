@@ -2,7 +2,7 @@
 #   ConnectSecure Agent Install Utility
 # ==========================================
 
-. ([scriptblock]::Create((irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 -UseBasicParsing)))
+irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
 Show-Header "ConnectSecure Agent Install Utility"
 
@@ -75,9 +75,6 @@ function Run-AgentInstall {
 
     Export-Data -Object $log -BaseName $baseName
     Write-Host "`n📄 Transcript saved to: $txtPath"
-
-    # Re-import shared functions to restore scope (if lost)
-    . ([scriptblock]::Create((irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 -UseBasicParsing)))
 
     Run-ZipAndEmailResults
     Run-CleanupExportFolder
