@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 2.2 | Service check, status report, uninstall ask ║
+# ║ Version: 2.3 | Exits to menu if user declines uninstall     ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -51,8 +51,8 @@ function Run-AgentInstaller {
         $reinstallPrompt = Read-Host "`nConnectSecure Agent is already running.`nWould you like to uninstall it before reinstalling? (Y/N)"
         if ($reinstallPrompt -match '^[Yy]$') {
             Run-AgentUninstall
-            return
         }
+        return  # Always return to menu
     }
 
     # Proceed with install
