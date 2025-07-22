@@ -44,7 +44,10 @@ function Show-LauncherMenu {
     Write-Host "     └─ Check SMB Version"
 
     Write-Host " [7] Agent Installer Utility"
-    Write-Host "     └─ Download and Install CyberCNS Agent"
+    Write-Host "     ├─ Install or Reinstall Agent"
+    Write-Host "     ├─ Uninstall Agent"
+    Write-Host "     ├─ Zip and Email Results"
+    Write-Host "     └─ Cleanup and Exit"
 
     Write-Host " [8] System Info A"
     Write-Host "     ├─ Firewall Status"
@@ -67,7 +70,7 @@ function Show-LauncherMenu {
         "4" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-AD.ps1 | iex }
         "5" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Network-Tools.ps1 | iex }
         "6" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Agent-Maintenance.ps1 | iex }
-        "7" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Agent-Install-Tool.ps1 | iex }
+        "7" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Agent-Menu-Tool.ps1 | iex }
         "8" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/SystemInfo-A.ps1 | iex }
         "9" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/SystemInfo-B.ps1 | iex }
         "Q" {
