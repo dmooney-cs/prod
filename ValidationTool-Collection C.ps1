@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Validation Tool C                      ║
-# ║ Version: C.1 | 2025-07-21                                   ║
+# ║ Version: C.2 | 2025-07-21                                   ║
 # ║ Includes OSQuery + TLS Cipher + ZIP + Cleanup              ║
 # ╚═════════════════════════════════════════════════════════════╝
 
@@ -49,11 +49,11 @@ function Run-SSLCipherValidation {
     }
 
     $ip = Read-Host "Enter target IP for scan"
-    $log = Get-ExportPath -BaseName "TLS443Scan-$ip" -Ext "txt"
+    $log = Get-ExportPath -BaseName "SSLCipher443Scan-$ip" -Ext "txt"
 
     try {
         $result = & $nmap --script ssl-enum-ciphers -p 443 $ip
-        $result | Out-File $log
+        $result | Out-File $log -Encoding UTF8
         Write-ExportPath $log
     } catch {
         Write-Host "Scan failed." -ForegroundColor Red
@@ -82,8 +82,14 @@ function Show-CollectionMenuC {
     switch ($sel) {
         "1" { Run-OSQueryBrowserExtensions }
         "2" { Run-SSLCipherValidation }
-        "3" { Invoke-ZipAndEmailResults }
-        "4" { Invoke-CleanupExportFolder }
+        "3" {
+            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+            Invoke-ZipAndEmailResults
+        }
+        "4" {
+            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+            Invoke-CleanupExportFolder
+        }
         "Q" { return }
         default {
             Write-Host "Invalid selection." -ForegroundColor Red
