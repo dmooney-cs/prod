@@ -1,13 +1,14 @@
-# ╔═════════════════════════════════════════════════════════════╗
-# ║ 🧰 CS Tech Toolbox – Validation Tool A                      ║
-# ║ Version: A.3 | Office, Drivers, Dual Roaming, Extensions   ║
-# ╚═════════════════════════════════════════════════════════════╝
+# ╔════════════════════════════════════════════════════════════╗
+# ║ 🧰 CS Tech Toolbox – Validation Tool A                     ║
+# ║ Version: A.4 – Office, Drivers, Roaming, Extensions        ║
+# ╚════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
 
 function Run-OfficeValidation {
-    Show-Header "Office Installation Audit"
+    Clear-Host
+    Write-Host "`n=== Office Installation Audit ===`n" -ForegroundColor Cyan
     $apps = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, `
                               HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue |
             Where-Object { $_.DisplayName -match "Office|Microsoft 365|Word|Excel|Outlook" } |
@@ -17,128 +18,102 @@ function Run-OfficeValidation {
 }
 
 function Run-DriverAudit {
-    Show-Header "Installed Driver Audit"
-    $drivers = Get-WmiObject Win32_PnPSignedDriver | Select-Object DeviceName, DriverVersion, Manufacturer, DriverDate
-    Export-Data -Object $drivers -BaseName "Installed_Drivers"
+    Clear-Host
+    Write-Host "`n=== Installed Driver Summary ===`n" -ForegroundColor Cyan
+    $drivers = Get-WmiObject Win32_PnPSignedDriver | 
+               Select-Object DeviceName, DriverVersion, DriverProviderName, DriverDate
+    Export-Data -Object $drivers -BaseName "DriverAudit"
     Pause-Script
 }
 
 function Run-RoamingProfileApps {
-    Show-Header "Roaming Profile Application Audit"
-    $results = @()
-    $profiles = Get-CimInstance Win32_UserProfile | Where-Object { $_.Special -eq $false }
-
-    foreach ($p in $profiles) {
-        $user = $p.LocalPath.Split('\')[-1]
-
-        # Method 1: AppData folders
-        $apps = Get-ChildItem "C:\Users\$user\AppData\Local" -Directory -ErrorAction SilentlyContinue
-        foreach ($a in $apps) {
-            $results += [PSCustomObject]@{
-                Profile = $user
-                Name    = $a.Name
-                Version = ""
-                Source  = "AppFolder"
-            }
-        }
-
-        # Method 2: NTUSER.DAT hive load
-        $regPath = "$($p.LocalPath)\NTUSER.DAT"
-        if (Test-Path $regPath) {
-            try {
-                $hive = "HKU\TempHive_$user"
-                reg load $hive $regPath | Out-Null
-                $entries = Get-ItemProperty "Registry::$hive\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue
-                foreach ($app in $entries) {
-                    if ($app.DisplayName) {
-                        $results += [PSCustomObject]@{
-                            Profile = $user
-                            Name    = $app.DisplayName
-                            Version = $app.DisplayVersion
-                            Source  = "Registry"
-                        }
+    Clear-Host
+    Write-Host "`n=== Roaming Profile Applications ===`n" -ForegroundColor Cyan
+    $users = Get-ChildItem 'HKU:\' | Where-Object { $_.Name -match '^HKEY_USERS\\S-\d-\d+-(\d+-){1,14}\d+$' }
+    $results = foreach ($user in $users) {
+        $sid = $user.PSChildName
+        $keyPath = "Registry::HKEY_USERS\$sid\Software\Microsoft\Windows\CurrentVersion\Uninstall\"
+        if (Test-Path $keyPath) {
+            Get-ChildItem $keyPath -ErrorAction SilentlyContinue | ForEach-Object {
+                $app = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+                if ($app.DisplayName) {
+                    [PSCustomObject]@{
+                        SID     = $sid
+                        AppName = $app.DisplayName
+                        Version = $app.DisplayVersion
                     }
                 }
-                reg unload $hive | Out-Null
-            } catch { continue }
+            }
         }
     }
-
-    Export-Data -Object $results -BaseName "RoamingProfile_Apps"
+    Export-Data -Object $results -BaseName "RoamingApps"
     Pause-Script
 }
 
 function Run-BrowserExtensionDetails {
-    Show-Header "Browser Extension Audit"
-    $users = Get-ChildItem "C:\Users" -Force | Where-Object { Test-Path "$($_.FullName)\AppData" }
+    Clear-Host
+    Write-Host "`n=== Browser Extensions Audit ===`n" -ForegroundColor Cyan
+    $paths = @(
+        "$env:LOCALAPPDATA\Google\Chrome\User Data",
+        "$env:LOCALAPPDATA\Microsoft\Edge\User Data",
+        "$env:APPDATA\Mozilla\Firefox\Profiles"
+    )
     $results = @()
-
-    foreach ($user in $users) {
-        $base = $user.FullName
-        $edge = "$base\AppData\Local\Microsoft\Edge\User Data\Default\Extensions"
-        $chrome = "$base\AppData\Local\Google\Chrome\User Data\Default\Extensions"
-        $firefox = Get-ChildItem "$base\AppData\Roaming\Mozilla\Firefox\Profiles" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
-
-        if (Test-Path $chrome) {
-            Get-ChildItem $chrome -Directory | ForEach-Object {
-                $results += [PSCustomObject]@{ Browser="Chrome"; User=$user.Name; Extension=$_.Name }
-            }
-        }
-        if (Test-Path $edge) {
-            Get-ChildItem $edge -Directory | ForEach-Object {
-                $results += [PSCustomObject]@{ Browser="Edge"; User=$user.Name; Extension=$_.Name }
-            }
-        }
-        if ($firefox) {
-            $extPath = Join-Path $firefox.FullName "extensions"
-            if (Test-Path $extPath) {
-                Get-ChildItem $extPath -File | ForEach-Object {
-                    $results += [PSCustomObject]@{ Browser="Firefox"; User=$user.Name; Extension=$_.Name }
-                }
+    foreach ($path in $paths) {
+        if (Test-Path $path) {
+            $browser = if ($path -match "Chrome") { "Chrome" }
+                       elseif ($path -match "Edge") { "Edge" }
+                       elseif ($path -match "Firefox") { "Firefox" }
+            Get-ChildItem $path -Recurse -Include manifest.json -ErrorAction SilentlyContinue | ForEach-Object {
+                try {
+                    $json = Get-Content $_.FullName -Raw | ConvertFrom-Json
+                    $results += [PSCustomObject]@{
+                        Browser      = $browser
+                        Extension    = $json.name
+                        Version      = $json.version
+                        Description  = $json.description
+                        Path         = $_.Directory.FullName
+                    }
+                } catch {}
             }
         }
     }
-
-    Export-Data -Object $results -BaseName "Browser_Extensions"
+    $results = $results | Sort-Object Browser, Extension
+    Export-Data -Object $results -BaseName "BrowserExtensions"
     Pause-Script
 }
 
-function Show-CollectionMenuA {
+function Show-ValidationMenuA {
     Clear-Host
+    Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "║        🧪 Validation Tool A – Collection Menu            ║" -ForegroundColor Cyan
+    Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║   🧰 CS Tech Toolbox – Validation Tool A     ║" -ForegroundColor Cyan
-    Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "1. Validate Microsoft Office Installations"
+    Write-Host "2. Audit Installed Drivers"
+    Write-Host "3. Scan Roaming Profiles for Applications"
+    Write-Host "4. Detect Browser Extensions (Chrome, Edge, Firefox)"
     Write-Host ""
-    $menu = @(
-        " [1] Microsoft Office Detection",
-        " [2] Installed Driver Audit",
-        " [3] Roaming Profile Application Scan",
-        " [4] Browser Extension Details",
-        " [5] Zip and Email Results",
-        " [6] Cleanup Export Folder",
-        " [Q] Quit"
-    )
-    $menu | ForEach-Object { Write-Host $_ }
-
-    $sel = Read-Host "`nSelect an option"
-    switch ($sel) {
-        "1" { Run-OfficeValidation }
-        "2" { Run-DriverAudit }
-        "3" { Run-RoamingProfileApps }
-        "4" { Run-BrowserExtensionDetails }
-        "5" {
-            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
-            Invoke-ZipAndEmailResults
-        }
-        "6" {
-            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
-            Invoke-CleanupExportFolder
-        }
-        "Q" { return }
-        default { Write-Host "Invalid selection." -ForegroundColor Red; Pause-Script }
-    }
-    Show-CollectionMenuA
+    Write-Host "Z. Zip and Email Results"
+    Write-Host "C. Cleanup Export Folder"
+    Write-Host "Q. Quit to Main Menu"
+    Write-Host ""
 }
 
-Show-CollectionMenuA
+do {
+    Show-ValidationMenuA
+    $choice = Read-Host "Select an option"
+    switch ($choice) {
+        '1' { Run-OfficeValidation }
+        '2' { Run-DriverAudit }
+        '3' { Run-RoamingProfileApps }
+        '4' { Run-BrowserExtensionDetails }
+        'Z' { Run-ZipAndEmailResults }
+        'C' { Run-CleanupExportFolder }
+        'Q' { return }
+        default {
+            Write-Host "Invalid selection. Try again." -ForegroundColor Yellow
+            Pause
+        }
+    }
+} while ($true)
