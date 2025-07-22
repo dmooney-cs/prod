@@ -1,7 +1,7 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Validation Tool A                      ║
-# ║ Version: A.1 | 2025-07-21                                   ║
-# ║ Includes Office, Drivers, Roaming Apps, Browser Audit      ║
+# ║ Version: A.2 | 2025-07-21                                   ║
+# ║ Includes Office, Drivers, Roaming Apps, Extensions, ZIP     ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -9,16 +9,33 @@ Ensure-ExportFolder
 
 function Run-OfficeValidation {
     Show-Header "Office Installation Audit"
-    $apps = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue |
-        Where-Object { $_.DisplayName -match "Office|Microsoft 365|Word|Excel|Outlook" } |
-        Select-Object DisplayName, DisplayVersion, Publisher, InstallDate
 
-    Export-Data -Object $apps -BaseName "Office_Validation"
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $hostname = $env:COMPUTERNAME
+    $exportDir = "C:\Script-Export"
+    if (-not (Test-Path $exportDir)) {
+        New-Item -Path $exportDir -ItemType Directory | Out-Null
+    }
+
+    $apps = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, `
+                              HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -match "Office|Microsoft 365|Word|Excel|Outlook" } |
+            Select-Object DisplayName, DisplayVersion, Publisher, InstallDate
+
+    if ($apps) {
+        $file = "$exportDir\OfficeAudit_$timestamp_$hostname.csv"
+        $apps | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
+        Write-Host "`n✅ Office audit results exported to:" -ForegroundColor Green
+        Write-Host $file -ForegroundColor Yellow
+    } else {
+        Write-Host "`nNo Microsoft Office applications found." -ForegroundColor Yellow
+    }
+
     Pause-Script
 }
 
 function Run-DriverAudit {
-    Show-Header "Installed Drivers Audit"
+    Show-Header "Installed Driver Audit"
     $drivers = Get-WmiObject Win32_PnPSignedDriver | Select-Object DeviceName, DriverVersion, Manufacturer, DriverDate
     Export-Data -Object $drivers -BaseName "Installed_Drivers"
     Pause-Script
@@ -54,7 +71,7 @@ function Run-RoamingProfileApps {
 }
 
 function Run-BrowserExtensionDetails {
-    Show-Header "Browser Extension Scan"
+    Show-Header "Browser Extension Audit"
     $users = Get-ChildItem "C:\Users" -Force | Where-Object { Test-Path "$($_.FullName)\AppData" }
     $results = @()
 
