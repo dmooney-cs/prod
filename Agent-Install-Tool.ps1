@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 1.8 | Exact match to one-liner install behavior    ║
+# ║ Version: 1.9 | Runs installer inline for transcript capture ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -41,13 +41,14 @@ function Run-AgentInstaller {
         Write-Host "✅ Agent downloaded successfully." -ForegroundColor Green
 
         $installCmd = "`"$installer`" -c $company -e $tenant -j $secret -i"
-        Write-Host "`n🚀 Installing with command:" -ForegroundColor Cyan
+        Write-Host "`n🚀 Running inline install command:" -ForegroundColor Cyan
         Write-Host "$installCmd" -ForegroundColor Yellow
         Start-Sleep -Seconds 2
 
-        Start-Process -FilePath $installer -ArgumentList "-c $company -e $tenant -j $secret -i" -Wait
-        Write-Host "`n✅ Agent installed successfully." -ForegroundColor Green
-        $result = "Success"
+        & "$installer" -c $company -e $tenant -j $secret -i
+
+        Write-Host "`n✅ Agent executed inline successfully." -ForegroundColor Green
+        $result = "Executed inline"
     } catch {
         Write-Host "`n❌ Installation failed: $_" -ForegroundColor Red
         $result = "Failed"
