@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 2.1 | Pre-install check & uninstall prompt added   ║
+# ║ Version: 2.2 | Service check, status report, uninstall ask ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -14,17 +14,48 @@ if (-not (Test-Path $TempDir)) {
 function Run-AgentInstaller {
     Show-Header "CyberCNS Agent - INSTALL"
 
-    # Step 0: Check if agent is already installed
-    $existing = "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat"
-    if (Test-Path $existing) {
-        Write-Host "`n⚠️ Agent appears to already be installed." -ForegroundColor Yellow
-        $choice = Read-Host "Would you like to uninstall it first? (Y/N)"
-        if ($choice -eq "Y" -or $choice -eq "y") {
+    # Step 0: Check for service presence and status
+    Write-Host "`n[Checking ConnectSecure Agent service status...]" -ForegroundColor Gray
+    $svc1 = Get-Service -Name "CyberCNSAgent" -ErrorAction SilentlyContinue
+    $svc2 = Get-Service -Name "CyberCNSAgentMonitor" -ErrorAction SilentlyContinue
+
+    $svc1Status = if ($svc1) {
+        "✅ Installed | " + ($(if ($svc1.Status -eq 'Running') {"✅ Running"} else {"❌ Not Running"}))
+    } else {
+        "❌ Not Installed"
+    }
+
+    $svc2Status = if ($svc2) {
+        "✅ Installed | " + ($(if ($svc2.Status -eq 'Running') {"✅ Running"} else {"❌ Not Running"}))
+    } else {
+        "❌ Not Installed"
+    }
+
+    Write-Host "CyberCNSAgent:        $svc1Status"
+    Write-Host "CyberCNSAgentMonitor: $svc2Status"
+
+    if ($svc1 -and $svc2 -and $svc1.Status -ne 'Running' -and $svc2.Status -ne 'Running') {
+        $startPrompt = Read-Host "`nBoth services are installed but not running.`nWould you like to start them now? (Y/N)"
+        if ($startPrompt -match '^[Yy]$') {
+            try {
+                Start-Service -Name CyberCNSAgent, CyberCNSAgentMonitor -ErrorAction Stop
+                Write-Host "✅ Services started successfully." -ForegroundColor Green
+            } catch {
+                Write-Host "❌ Failed to start services: $_" -ForegroundColor Red
+                Pause-Script; return
+            }
+        }
+    }
+
+    if ($svc1 -and $svc1.Status -eq 'Running') {
+        $reinstallPrompt = Read-Host "`nConnectSecure Agent is already running.`nWould you like to uninstall it before reinstalling? (Y/N)"
+        if ($reinstallPrompt -match '^[Yy]$') {
             Run-AgentUninstall
             return
         }
     }
 
+    # Proceed with install
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
     $logFile = "$ExportFolder\AgentInstall-Log-$timestamp-$hostname.txt"
