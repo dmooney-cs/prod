@@ -1,6 +1,6 @@
 # ╔════════════════════════════════════════════════════════════╗
 # ║ 🌐 CS Tech Toolbox – Network Tools                         ║
-# ║ Version: N.8 – TLS/SMB Restored with Exports & Common      ║
+# ║ Version: N.9 – Export + Error Trapping Restored           ║
 # ╚════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -10,34 +10,37 @@ function Run-TLS10Scan {
     Clear-Host
     Write-Host "`n=== TLS 1.0 Cipher Scan (Port 3389) ===`n" -ForegroundColor Cyan
 
-    $nmapPath = "C:\Program Files (x86)\CyberCNSAgent\nmap\nmap.exe"
-    if (-not (Test-Path $nmapPath)) {
-        Write-Host "❌ Nmap not found at $nmapPath" -ForegroundColor Red
-        Pause-Script
-        return
+    try {
+        $nmapPath = "C:\Program Files (x86)\CyberCNSAgent\nmap\nmap.exe"
+        if (-not (Test-Path $nmapPath)) {
+            throw "❌ Nmap not found at $nmapPath"
+        }
+
+        $ip = Read-Host "Enter target IP address"
+        if (-not $ip) {
+            Write-Host "Cancelled." -ForegroundColor Yellow
+            Pause-Script
+            return
+        }
+
+        $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+        $hostname = $env:COMPUTERNAME
+        $txtPath = "C:\Script-Export\TLS10Scan-$ip-$timestamp-$hostname.txt"
+
+        & "$nmapPath" --script ssl-enum-ciphers -p 3389 $ip | Tee-Object -FilePath $txtPath
+
+        $result = [PSCustomObject]@{
+            Hostname   = $hostname
+            TargetIP   = $ip
+            Timestamp  = $timestamp
+            OutputFile = $txtPath
+        }
+
+        Export-Data -Object $result -BaseName "TLS10Scan"
     }
-
-    $ip = Read-Host "Enter target IP address"
-    if (-not $ip) {
-        Write-Host "Cancelled." -ForegroundColor Yellow
-        Pause-Script
-        return
+    catch {
+        Write-Host "`n❌ ERROR during TLS scan:`n$($_.Exception.Message)" -ForegroundColor Red
     }
-
-    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $hostname = $env:COMPUTERNAME
-    $txtPath = "C:\Script-Export\TLS10Scan-$ip-$timestamp-$hostname.txt"
-
-    & "$nmapPath" --script ssl-enum-ciphers -p 3389 $ip | Tee-Object -FilePath $txtPath
-
-    $result = [PSCustomObject]@{
-        Hostname   = $hostname
-        TargetIP   = $ip
-        Timestamp  = $timestamp
-        OutputFile = $txtPath
-    }
-
-    Export-Data -Object $result -BaseName "TLS10Scan"
     Pause-Script
 }
 
@@ -45,26 +48,29 @@ function Run-ValidateSMB {
     Clear-Host
     Write-Host "`n=== ValidateSMB Tool ===`n" -ForegroundColor Cyan
 
-    $toolPath = "C:\Program Files (x86)\CyberCNSAgent\ValidateSMB.exe"
-    if (-not (Test-Path $toolPath)) {
-        Write-Host "❌ ValidateSMB.exe not found." -ForegroundColor Red
-        Pause-Script
-        return
+    try {
+        $toolPath = "C:\Program Files (x86)\CyberCNSAgent\ValidateSMB.exe"
+        if (-not (Test-Path $toolPath)) {
+            throw "❌ ValidateSMB.exe not found at expected location."
+        }
+
+        $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+        $hostname = $env:COMPUTERNAME
+        $txtPath = "C:\Script-Export\ValidateSMB-$timestamp-$hostname.txt"
+
+        & "$toolPath" | Tee-Object -FilePath $txtPath
+
+        $result = [PSCustomObject]@{
+            Hostname   = $hostname
+            Timestamp  = $timestamp
+            OutputFile = $txtPath
+        }
+
+        Export-Data -Object $result -BaseName "ValidateSMB"
     }
-
-    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $hostname = $env:COMPUTERNAME
-    $txtPath = "C:\Script-Export\ValidateSMB-$timestamp-$hostname.txt"
-
-    & "$toolPath" | Tee-Object -FilePath $txtPath
-
-    $result = [PSCustomObject]@{
-        Hostname   = $hostname
-        Timestamp  = $timestamp
-        OutputFile = $txtPath
+    catch {
+        Write-Host "`n❌ ERROR during ValidateSMB:`n$($_.Exception.Message)" -ForegroundColor Red
     }
-
-    Export-Data -Object $result -BaseName "ValidateSMB"
     Pause-Script
 }
 
@@ -80,14 +86,19 @@ function Run-InstallNpcap {
     }
 
     Write-Host "⬇ Downloading Npcap..."
-    Invoke-WebRequest -Uri $url -OutFile $installer -ErrorAction Stop
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $installer -ErrorAction Stop
 
-    if (Test-Path $installer) {
-        Write-Host "⚙ Installing Npcap silently..."
-        Start-Process -FilePath $installer -ArgumentList "/S" -Wait
-        Write-Host "`n✔ Npcap installation attempted. You may verify manually." -ForegroundColor Green
-    } else {
-        Write-Host "❌ Failed to download Npcap." -ForegroundColor Red
+        if (Test-Path $installer) {
+            Write-Host "⚙ Installing Npcap silently..."
+            Start-Process -FilePath $installer -ArgumentList "/S" -Wait
+            Write-Host "`n✔ Npcap installation attempted. You may verify manually." -ForegroundColor Green
+        } else {
+            throw "Npcap installer not found after download."
+        }
+    }
+    catch {
+        Write-Host "`n❌ ERROR during Npcap install:`n$($_.Exception.Message)" -ForegroundColor Red
     }
 
     Pause-Script
