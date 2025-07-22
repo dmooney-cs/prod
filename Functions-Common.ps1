@@ -1,4 +1,4 @@
-# 🔧 CS Toolbox – Shared Functions v3.10
+# 🔧 CS Toolbox – Shared Functions v3.11
 
 function Show-Header {
     param ([string]$Title)
@@ -77,24 +77,34 @@ function Invoke-ZipAndEmailResults {
     $tenant  = Read-Host "Enter Tenant Name"
 
     $logsPath = "C:\Program Files (x86)\CyberCNSAgent\logs"
-    $logZip = ""
+    $logFolder = ""
+    $failedFiles = @()
 
     if (Test-Path $logsPath) {
         $logAnswer = Read-Host "Include local agent logs from '$logsPath' in export? (Y/N)"
         if ($logAnswer -eq "Y") {
-            $logStamp = Get-Date -Format "yyyyMMdd_HHmmss"
-            $logZip = "C:\Script-Export\AgentLogs_$logStamp.zip"
-            try {
-                Compress-Archive -Path "$logsPath\*" -DestinationPath $logZip -Force -ErrorAction SilentlyContinue
-                Write-Host "✅ Logs zipped to $logZip" -ForegroundColor Green
-            } catch {
-                Write-Host "⚠️ Failed to zip some log files. Continuing." -ForegroundColor Yellow
-            }
-        }
-    }
+            $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+            $hostname = $env:COMPUTERNAME
+            $logFolder = Join-Path $ExportFolder "AgentLogs_${stamp}_$hostname"
+            New-Item -ItemType Directory -Path $logFolder -Force | Out-Null
 
-    if (Test-Path $logZip) {
-        Write-Host "📎 AgentLogs will be included in export ZIP." -ForegroundColor DarkGray
+            Get-ChildItem -Path $logsPath -File | ForEach-Object {
+                $dest = Join-Path $logFolder $_.Name
+                try {
+                    Copy-Item $_.FullName -Destination $dest -Force -ErrorAction Stop
+                } catch {
+                    $failedFiles += $_.Name
+                }
+            }
+
+            if ($failedFiles.Count -gt 0) {
+                Write-Host "`n⚠️ Could not copy the following files due to access/lock issues:" -ForegroundColor Yellow
+                $failedFiles | ForEach-Object { Write-Host " - $_" -ForegroundColor DarkGray }
+            }
+
+            $copied = (Get-ChildItem -Path $logFolder -File).Count
+            Write-Host "✅ Copied $copied log files to: $logFolder" -ForegroundColor Green
+        }
     }
 
     $zipName = "ExportResults_{0}_{1}.zip" -f $env:COMPUTERNAME, (Get-Date -Format "yyyyMMdd_HHmmss")
@@ -103,9 +113,10 @@ function Invoke-ZipAndEmailResults {
 
     Show-FolderContents -Folder $ExportFolder
 
-    Write-Host "`n🔍 Files to be zipped:" -ForegroundColor DarkGray
-    Get-ChildItem -Path $ExportFolder -File | ForEach-Object {
-        Write-Host " - $($_.Name)" -ForegroundColor Gray
+    Write-Host "`n🔍 Files and folders to be zipped:" -ForegroundColor DarkGray
+    Get-ChildItem -Path $ExportFolder | ForEach-Object {
+        $size = if ($_.PSIsContainer) { "[DIR]" } else { "$([math]::Round($_.Length / 1KB, 1)) KB" }
+        Write-Host " - $($_.Name) $size" -ForegroundColor Gray
     }
 
     try {
