@@ -1,13 +1,13 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Validation Tool C                      ║
-# ║ Version: C.3 | 2025-07-22                                   ║
+# ║ Version: C.4 | 2025-07-22                                   ║
 # ║ Includes OSQuery + TLS Cipher + ZIP + Cleanup              ║
 # ╚═════════════════════════════════════════════════════════════╝
 
+irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
 
 function Run-OSQueryBrowserExtensions {
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Show-Header "OSQuery Browser Extensions Audit"
 
     $paths = @("C:\Program Files (x86)\CyberCNSAgent\osqueryi.exe", "C:\Windows\CyberCNSAgent\osqueryi.exe")
@@ -44,7 +44,6 @@ ORDER BY users.username, chrome_extensions.name;
 }
 
 function Run-SSLCipherValidation {
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Show-Header "SSL Cipher Validation (Nmap Port 443)"
 
     $nmap = "C:\Program Files (x86)\CyberCNSAgent\nmap\nmap.exe"
@@ -68,12 +67,10 @@ function Run-SSLCipherValidation {
 }
 
 function Run-Zip {
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Invoke-ZipAndEmailResults
 }
 
 function Run-Cleanup {
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Invoke-CleanupExportFolder
 }
 
