@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 1.4 | Detects agent version and shows it          ║
+# ║ Version: 1.6 | Download headers + integrity check added    ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -8,22 +8,6 @@ Ensure-ExportFolder
 $TempDir = "C:\Script-Temp"
 if (-not (Test-Path $TempDir)) {
     New-Item -Path $TempDir -ItemType Directory | Out-Null
-}
-
-$installer = "$TempDir\cybercnsagent.exe"
-$agentUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
-$Global:detectedVersion = "Unknown"
-
-# Download and detect version before menu
-try {
-    Invoke-WebRequest -Uri $agentUrl -OutFile $installer -UseBasicParsing
-    if (Test-Path $installer) {
-        $versionInfo = (Get-Item $installer).VersionInfo
-        $Global:detectedVersion = $versionInfo.ProductVersion
-    }
-} catch {
-    Write-Host "⚠️ Could not download agent or detect version." -ForegroundColor Yellow
-    $Global:detectedVersion = "Unavailable"
 }
 
 function Run-AgentInstaller {
@@ -37,13 +21,36 @@ function Run-AgentInstaller {
     $hostname = $env:COMPUTERNAME
     $logFile = "$ExportFolder\AgentInstall-Log-$timestamp-$hostname.txt"
     $summaryPath = "$ExportFolder\AgentInstall-Summary-$timestamp-$hostname.csv"
-    $version = $Global:detectedVersion
+    $installer = "$TempDir\cybercnsagent.exe"
+    $agentUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
     $result = "Not Run"
+    $version = "Unknown"
 
     Start-Transcript -Path $logFile -Force
 
-    if (Test-Path $installer) {
-        Write-Host "📦 Detected agent version: $version" -ForegroundColor Cyan
+    Write-Host "`n🔍 Checking download headers..."
+    try {
+        $head = Invoke-WebRequest -Uri $agentUrl -Method Head -UseBasicParsing
+        Write-Host "📎 Content-Type: $($head.Headers['Content-Type'])"
+        Write-Host "📎 Content-Length: $($head.Headers['Content-Length']) bytes"
+    } catch {
+        Write-Host "⚠️ Unable to retrieve headers. Proceeding anyway..." -ForegroundColor Yellow
+    }
+
+    Write-Host "`n📥 Downloading agent..."
+    try {
+        Invoke-WebRequest -Uri $agentUrl -OutFile $installer -UseBasicParsing
+
+        $size = (Get-Item $installer).Length
+        Write-Host "📦 Downloaded file size: $size bytes"
+
+        if ($size -lt 100000) {
+            Write-Host "❌ Downloaded file is too small — likely invalid." -ForegroundColor Red
+            throw "Agent installer integrity check failed."
+        }
+
+        Write-Host "✅ Agent downloaded to: $installer" -ForegroundColor Green
+
         $installCmd = "`"$installer`" -c $company -e $tenant -j $secret -i"
         Write-Host "`n📦 Installing agent with command:" -ForegroundColor Cyan
         Write-Host "$installCmd" -ForegroundColor Yellow
@@ -57,9 +64,9 @@ function Run-AgentInstaller {
             Write-Host "`n❌ Agent install failed." -ForegroundColor Red
             $result = "Install failed"
         }
-    } else {
-        Write-Host "❌ Installer not found. Cannot proceed." -ForegroundColor Red
-        $result = "Download failed"
+    } catch {
+        Write-Host "❌ Download or install failed: $_" -ForegroundColor Red
+        $result = "Download or validation failed"
     }
 
     $summary = [PSCustomObject]@{
@@ -100,13 +107,13 @@ function Show-AgentInstallerMenu {
     Write-Host "║   🧰 CS Tech Toolbox – Agent Installer Menu         ║" -ForegroundColor Cyan
     Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "Detected Agent Version: $Global:detectedVersion" -ForegroundColor Magenta
-    Write-Host ""
 
     $menu = @(
         " [1] Install CyberCNS Agent",
         " [2] Reinstall Agent (external)",
         " [3] Uninstall Agent (external)",
+        " [4] Zip and Email Export Folder",
+        " [5] Cleanup Export Folder",
         " [Q] Quit"
     )
     $menu | ForEach-Object { Write-Host $_ }
@@ -116,6 +123,8 @@ function Show-AgentInstallerMenu {
         "1" { Run-AgentInstaller }
         "2" { Run-AgentReinstall }
         "3" { Run-AgentUninstall }
+        "4" { Invoke-ZipAndEmailResults }
+        "5" { Invoke-CleanupExportFolder }
         "Q" { return }
         default { Write-Host "Invalid selection." -ForegroundColor Red; Pause-Script }
     }
