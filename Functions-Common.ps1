@@ -1,4 +1,4 @@
-# 🔧 CS Toolbox – Shared Functions v3.11
+# 🔧 CS Toolbox – Shared Functions v3.12
 
 function Show-Header {
     param ([string]$Title)
@@ -91,14 +91,14 @@ function Invoke-ZipAndEmailResults {
             Get-ChildItem -Path $logsPath -File | ForEach-Object {
                 $dest = Join-Path $logFolder $_.Name
                 try {
-                    Copy-Item $_.FullName -Destination $dest -Force -ErrorAction Stop
+                    Get-Content $_.FullName -ErrorAction Stop | Out-File -FilePath $dest -Force -Encoding UTF8
                 } catch {
                     $failedFiles += $_.Name
                 }
             }
 
             if ($failedFiles.Count -gt 0) {
-                Write-Host "`n⚠️ Could not copy the following files due to access/lock issues:" -ForegroundColor Yellow
+                Write-Host "`n⚠️ Could not read/copy the following files due to lock or binary format:" -ForegroundColor Yellow
                 $failedFiles | ForEach-Object { Write-Host " - $_" -ForegroundColor DarkGray }
             }
 
