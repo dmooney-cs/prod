@@ -7,64 +7,28 @@
 function Show-LauncherMenu {
     Clear-Host
     Write-Host ""
-    Write-Host "╔════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║ 🧰 CS Tech Toolbox – Launcher Menu                ║" -ForegroundColor Cyan
-    Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "╔═════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "║ 🧰 CS Tech Toolbox – Launcher Menu                          ║" -ForegroundColor Cyan
+    Write-Host "║ Version: Beta3 | 2025-07-21                                 ║" -ForegroundColor Cyan
+    Write-Host "║ Loads 9 modular tools with visible subtools                ║" -ForegroundColor Cyan
+    Write-Host "╚═════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
 
-    Write-Host " [1] Validation Tool A"
-    Write-Host "     ├─ Office Detection"
-    Write-Host "     ├─ Driver Audit"
-    Write-Host "     ├─ Roaming Profile Apps"
-    Write-Host "     └─ Browser Extension Details"
-
-    Write-Host " [2] Validation Tool B"
-    Write-Host "     ├─ VC++ Runtime + Binary Scan"
-    Write-Host "     └─ Windows Patch Validation (WMIC, OSQuery, HotFix)"
-
-    Write-Host " [3] Validation Tool C"
-    Write-Host "     ├─ OSQuery Browser Extensions"
-    Write-Host "     └─ SSL Cipher Validation (Nmap 443)"
-
-    Write-Host " [4] Active Directory Collection"
-    Write-Host "     ├─ AD Users"
-    Write-Host "     ├─ AD Groups"
-    Write-Host "     ├─ AD Computers"
-    Write-Host "     └─ AD OUs + GPO Links"
-
-    Write-Host " [5] Network Tools"
-    Write-Host "     ├─ TLS 1.0 Check (Port 3389)"
-    Write-Host "     ├─ ValidateSMB Tool"
-    Write-Host "     └─ Npcap Installer"
-
-    Write-Host " [6] Agent Maintenance"
-    Write-Host "     ├─ Check Agent Status"
-    Write-Host "     ├─ Clear Pending Jobs"
-    Write-Host "     ├─ Set SMB Settings"
-    Write-Host "     └─ Check SMB Version"
-
-    Write-Host " [7] Agent Installer Utility"
-    Write-Host "     ├─ Install or Reinstall Agent"
-    Write-Host "     ├─ Uninstall Agent"
-    Write-Host "     ├─ Zip and Email Results"
-    Write-Host "     └─ Cleanup and Exit"
-
-    Write-Host " [8] System Info A"
-    Write-Host "     ├─ Firewall Status"
-    Write-Host "     ├─ Microsoft Defender Status"
-    Write-Host "     └─ Disk Space + SMART Health"
-
-    Write-Host " [9] System Info B"
-    Write-Host "     ├─ Pending Reboot Status"
-    Write-Host "     ├─ Event Log Error Summary (72h)"
-    Write-Host "     └─ Startup / Autostart Audit"
-
-    Write-Host " [Q] Quit"
+    Write-Host " 🧩 [1] Validation Tool A        – Office, Drivers, Roaming Apps, Extensions"
+    Write-Host " 🧪 [2] Validation Tool B        – VC++ Scan, Windows Patches (WMIC/OSQ/HotFix)"
+    Write-Host " 🔐 [3] Validation Tool C        – OSQuery Extensions, SSL Cipher (Nmap 443)"
+    Write-Host " 🏢 [4] Active Directory Tools   – Users, Groups, Computers, OUs, GPO Links"
+    Write-Host " 🌐 [5] Network Tools            – TLS 1.0 (3389), ValidateSMB, Npcap Installer"
+    Write-Host " 🛠️  [6] Agent Maintenance        – Status, Clear Jobs, Set/Check SMB"
+    Write-Host " 🚀 [7] Agent Installer Utility  – Install, Uninstall, Zip/Email, Cleanup"
+    Write-Host " 💽 [8] System Info A            – Firewall, Defender, Disk Space & SMART"
+    Write-Host " 📋 [9] System Info B            – Reboot Status, Logs, Startup Items"
+    Write-Host " ❌ [Q] Quit"
     Write-Host ""
 
     $choice = Read-Host "Select an option"
     switch ($choice) {
-        "1" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-Collection%20A.ps1 | iex }
+        "1" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-CollectionA-Fixed.ps1 | iex }
         "2" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-Collection%20B.ps1 | iex }
         "3" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-Collection%20C.ps1 | iex }
         "4" { irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/ValidationTool-AD.ps1 | iex }
