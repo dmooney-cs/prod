@@ -1,45 +1,35 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║ 🔧 Uninstall CyberCNS Agent V4 - Full Script (With Fallback)     ║
-# ╚══════════════════════════════════════════════════════════════════╝
-
-. { iwr -useb "https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1" } | iex
-Show-Header "CyberCNS Agent V4 Uninstaller"
+# ==========================================
+#   ConnectSecure Agent V4 - Uninstall Tool
+# ==========================================
 
 $ts = Get-Date -Format "yyyyMMdd_HHmmss"
 $hn = $env:COMPUTERNAME
 $log = @()
-$folder = Ensure-ExportFolder
-$csvPath = "$folder\UninstallAgent_$ts`_$hn.csv"
-$txtPath = "$folder\UninstallAgent_$ts`_$hn.txt"
-Start-Transcript -Path $txtPath -Append
+$export = "C:\Script-Export"
+$scriptTemp = "C:\Script-Temp"
+$batPath = "$scriptTemp\uninstall.bat"
 
-# Step 1: Default Uninstall
-Write-Host "`n🧹 Step 1 of 2: Running Default Uninstall Command..." -ForegroundColor Cyan
-try {
-    Set-Location "C:\Program Files (x86)\CyberCNSAgent"
-    Write-Host "Executing: cybercnsagent.exe -r" -ForegroundColor Yellow
-    .\cybercnsagent.exe -r
-    $log += [PSCustomObject]@{ Step = "Default Uninstall"; Status = "Executed"; Time = $ts }
-} catch {
-    Write-Host "❌ Default uninstall failed: $_" -ForegroundColor Red
-    $log += [PSCustomObject]@{ Step = "Default Uninstall"; Status = "Failed: $_"; Time = $ts }
-}
+if (-not (Test-Path $export)) { New-Item -Path $export -ItemType Directory | Out-Null }
+if (-not (Test-Path $scriptTemp)) { New-Item -Path $scriptTemp -ItemType Directory | Out-Null }
 
-# Step 2: Advanced Batch Uninstall
-Write-Host "`n🧪 Step 2 of 2: Running Advanced Uninstall Script..." -ForegroundColor Cyan
-$batUrl = "https://example.com/uninstall.bat"  # Replace with real URL
-$batPath = "C:\Program Files (x86)\CyberCNSAgent\uninstall.bat"
-$batContent = ""
+$logFile = "$export\AgentUninstallLog_$ts`_$hn.csv"
+$txtFile = "$export\AgentUninstallTranscript_$ts`_$hn.txt"
+
+Start-Transcript -Path $txtFile -Append
+
+# Step 0: Prepare uninstall.bat
+Write-Host "`n🧪 Step 0: Preparing uninstall batch file..." -ForegroundColor Cyan
+$batUrl = "https://example.com/uninstall.bat"  # Replace with actual URL if available
+$batContent = $null
 
 try {
-    Write-Host "🌐 Attempting to fetch uninstall.bat from: $batUrl" -ForegroundColor Yellow
+    Write-Host "🌐 Attempting to fetch uninstall.bat from: $batUrl" -ForegroundColor Gray
     $batContent = Invoke-WebRequest -Uri $batUrl -UseBasicParsing -TimeoutSec 10
-    $batContent.Content | Out-File -Encoding ASCII -FilePath $batPath -Force
-    Write-Host "✅ Downloaded uninstall.bat from online source." -ForegroundColor Green
-    $log += [PSCustomObject]@{ Step = "Fetch uninstall.bat"; Status = "Downloaded from URL"; Time = $ts }
+    $batContent = $batContent.Content
+    Write-Host "✅ Successfully fetched uninstall.bat from remote." -ForegroundColor Green
 } catch {
-    Write-Host "⚠️  Failed to fetch from URL. Using cached batch content." -ForegroundColor DarkYellow
-    $cached = @'
+    Write-Host "⚠️  Failed to fetch from URL. Using cached batch content." -ForegroundColor Yellow
+    $batContent = @'
 @echo off
 ping 127.0.0.1 -n 6 > nul
 cd "C:\PROGRA~2"
@@ -59,32 +49,48 @@ reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVer
 reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ConnectSecure Agent" /f
 rmdir CyberCNSAgent /s /q
 '@
-    $cached | Out-File -FilePath $batPath -Encoding ASCII -Force
-    Write-Host "🗂️  Cached uninstall.bat written to disk." -ForegroundColor Green
-    $log += [PSCustomObject]@{ Step = "Fetch uninstall.bat"; Status = "Fallback to cached version"; Time = $ts }
 }
 
-# Execute uninstall.bat
+Set-Content -Path $batPath -Value $batContent -Encoding ASCII -Force
+Write-Host "🗂️  uninstall.bat written to disk at $batPath" -ForegroundColor DarkGray
+$log += [PSCustomObject]@{ Step = "Prepare uninstall.bat"; Status = "Complete"; Path = $batPath; Time = $ts }
+
+# Step 1: Default Uninstall
+Write-Host "`n🧪 Step 1 of 2: Running Default Uninstall Commands..." -ForegroundColor Cyan
 try {
-    Write-Host "`n🚀 Executing uninstall.bat..." -ForegroundColor Cyan
-    cmd.exe /c "`"$batPath`""
-    Write-Host "✅ Advanced uninstall batch script completed from: $batPath" -ForegroundColor Green
-    $log += [PSCustomObject]@{ Step = "Run uninstall.bat"; Status = "Executed from $batPath"; Time = $ts }
+    Stop-Service -Name CyberCNSAgent -Force -ErrorAction SilentlyContinue
+    Stop-Service -Name ConnectSecureAgentMonitor -Force -ErrorAction SilentlyContinue
+    Write-Host "✅ Services stopped." -ForegroundColor Green
 } catch {
-    Write-Host "❌ Error running uninstall.bat: $_" -ForegroundColor Red
-    $log += [PSCustomObject]@{ Step = "Run uninstall.bat"; Status = "Failed: $_"; Time = $ts }
+    Write-Host "⚠️  Service stop error: $_" -ForegroundColor Yellow
 }
 
-# Export logs
-Export-Data -Data $log -Path $csvPath
-Write-Host "`n📁 CSV log exported to: " -NoNewline; Write-ExportPath $csvPath
-Write-Host "📄 Transcript saved to: " -NoNewline; Write-ExportPath $txtPath
+$regKeys = @(
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ConnectSecure Agent",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ConnectSecure Agent"
+)
+foreach ($key in $regKeys) {
+    try {
+        Remove-Item -Path $key -Recurse -Force -ErrorAction Stop
+        Write-Host "🧹 Removed registry: $key" -ForegroundColor Green
+    } catch {
+        Write-Host "⚠️  Could not remove registry: $key" -ForegroundColor Yellow
+    }
+}
+$log += [PSCustomObject]@{ Step = "Default Uninstall"; Status = "Completed"; Time = (Get-Date) }
 
-# Zip and Email Results
-Run-ZipAndEmailResults
+# Step 2: Advanced Uninstall
+Write-Host "`n🧪 Step 2 of 2: Executing Advanced Uninstall Script..." -ForegroundColor Cyan
+try {
+    Start-Process -FilePath $batPath -Wait
+    Write-Host "✅ uninstall.bat executed." -ForegroundColor Green
+    $log += [PSCustomObject]@{ Step = "Advanced Uninstall"; Status = "Executed"; File = $batPath; Time = (Get-Date) }
+} catch {
+    Write-Host "❌ Failed to execute uninstall.bat: $_" -ForegroundColor Red
+    $log += [PSCustomObject]@{ Step = "Advanced Uninstall"; Status = "Failed"; Time = (Get-Date) }
+}
 
-# Cleanup
-Run-CleanupExportFolder
-
-Pause-Script "Uninstall routine complete. Press any key to close."
+$log | Export-Csv -Path $logFile -NoTypeInformation -Encoding UTF8
+Write-Host "`n📁 Log exported to: $logFile" -ForegroundColor Cyan
 Stop-Transcript
+Pause
