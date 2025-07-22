@@ -107,7 +107,7 @@ function Show-CollectionMenuA {
     Clear-Host
     Write-Host ""
     Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║   🧰 CS Tech Toolbox – Collection Tool A     ║" -ForegroundColor Cyan
+    Write-Host "║   🧰 CS Tech Toolbox – Validation Tool A     ║" -ForegroundColor Cyan
     Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
     $menu = @(
