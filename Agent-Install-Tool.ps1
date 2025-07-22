@@ -1,6 +1,6 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║ 🚀 Agent Install Utility - Reinstall Aware (Fixed)               ║
-# ╚══════════════════════════════════════════════════════════════════╝
+# ==========================================
+#   ConnectSecure Agent Install Utility
+# ==========================================
 
 . { iwr -useb "https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1" } | iex
 Show-Header "ConnectSecure Agent Install Utility"
