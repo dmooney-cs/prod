@@ -2,7 +2,14 @@
 #   ConnectSecure Agent Install Utility
 # ==========================================
 
-. { iwr -useb "https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1" } | iex
+try {
+    . { iwr -useb "https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1" } | iex
+} catch {
+    Write-Host "❌ Failed to load Functions-Common.ps1" -ForegroundColor Red
+    Pause
+    exit
+}
+
 Show-Header "ConnectSecure Agent Install Utility"
 
 function Run-AgentInstall {
@@ -14,7 +21,7 @@ function Run-AgentInstall {
     $txtPath = "$folder\AgentInstallLog_$ts`_$hn.txt"
     Start-Transcript -Path $txtPath -Append
 
-    # Check for running services
+    # Check for existing services
     $svc1 = Get-Service -Name CyberCNSAgent -ErrorAction SilentlyContinue
     $svc2 = Get-Service -Name ConnectSecureAgentMonitor -ErrorAction SilentlyContinue
 
@@ -35,39 +42,38 @@ function Run-AgentInstall {
         }
     }
 
-    # Prompt for install parameters
+    # Prompt for required fields
     $company = Read-Host "Enter Company ID"
     $tenant  = Read-Host "Enter Tenant ID"
     $key     = Read-Host "Enter Secret Key"
 
-    # Download agent using resolved URL
-    $agentMetaUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
+    # Resolve and download agent
     $agentPath = "$env:TEMP\cybercnsagent.exe"
+    $metaUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
     try {
         Write-Host "`n🔎 Resolving agent download URL..." -ForegroundColor Cyan
-        $agentMeta = Invoke-RestMethod -Uri $agentMetaUrl -UseBasicParsing
-        $agentUrl = $agentMeta.agentDownloadURL
+        $response = Invoke-RestMethod -Uri $metaUrl -UseBasicParsing
+        $agentUrl = $response.agentDownloadURL
         Write-Host "⬇️ Downloading from: $agentUrl" -ForegroundColor DarkGray
         Invoke-WebRequest -Uri $agentUrl -OutFile $agentPath -UseBasicParsing
         Write-Host "✅ Agent downloaded to $agentPath" -ForegroundColor Green
         $log += [PSCustomObject]@{ Step = "Download Agent"; Status = "Success"; Path = $agentPath; Time = $ts }
     } catch {
         Write-Host "❌ Failed to resolve/download agent: $_" -ForegroundColor Red
-        $log += [PSCustomObject]@{ Step = "Download Agent"; Status = "Failed: $_"; Time = $ts }
+        $log += [PSCustomObject]@{ Step = "Download Agent"; Status = "Failed"; Time = $ts }
+        Stop-Transcript
         return
     }
 
-    # Install agent
+    # Run installer (in separate window)
     Write-Host "`n🚀 Installing agent..." -ForegroundColor Cyan
-    $installCmd = "& `"$agentPath`" -c $company -e $tenant -j $key -i"
-    Write-Host "Running: $installCmd" -ForegroundColor Yellow
     try {
         Start-Process -FilePath $agentPath -ArgumentList "-c $company -e $tenant -j $key -i" -Wait
         Write-Host "✅ Agent installed successfully." -ForegroundColor Green
         $log += [PSCustomObject]@{ Step = "Install Agent"; Status = "Completed"; Time = $ts }
     } catch {
         Write-Host "❌ Agent install failed: $_" -ForegroundColor Red
-        $log += [PSCustomObject]@{ Step = "Install Agent"; Status = "Failed: $_"; Time = $ts }
+        $log += [PSCustomObject]@{ Step = "Install Agent"; Status = "Failed"; Time = $ts }
     }
 
     Export-Data -Data $log -Path $csvPath
