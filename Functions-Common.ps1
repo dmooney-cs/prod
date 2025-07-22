@@ -31,7 +31,7 @@ function Ensure-ExportFolder {
 
 function Get-ExportPath {
     param ($BaseName, $Ext = "csv")
-    $host = $env:COMPUTERNAME
+    $hn = $env:COMPUTERNAME
     $time = Get-Date -Format "yyyyMMdd_HHmmss"
     return "$ExportFolder\$BaseName-$time-$host.$Ext"
 }
