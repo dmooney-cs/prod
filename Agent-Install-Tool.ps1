@@ -76,7 +76,7 @@ function Run-AgentInstall {
     Export-Data -Object $log -BaseName $baseName
     Write-Host "`n📄 Transcript saved to: $txtPath"
 
-    # Ensure functions remain scoped
+    # Re-import shared functions to restore scope (if lost)
     . ([scriptblock]::Create((irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 -UseBasicParsing)))
 
     Run-ZipAndEmailResults
