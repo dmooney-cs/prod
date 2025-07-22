@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 1.9 | Runs installer inline for transcript capture ║
+# ║ Version: 2.0 | Download check before prompt, inline run     ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -13,10 +13,6 @@ if (-not (Test-Path $TempDir)) {
 
 function Run-AgentInstaller {
     Show-Header "CyberCNS Agent - INSTALL"
-
-    $company = Read-Host "Enter Company ID"
-    $tenant  = Read-Host "Enter Tenant ID"
-    $secret  = Read-Host "Enter Secret Key"
 
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $hostname = $env:COMPUTERNAME
@@ -38,8 +34,28 @@ function Run-AgentInstaller {
 
         Write-Host "`n📥 Downloading agent to: $installer"
         Invoke-WebRequest -Uri $source -OutFile $installer -UseBasicParsing
-        Write-Host "✅ Agent downloaded successfully." -ForegroundColor Green
+        $size = (Get-Item $installer).Length
 
+        Write-Host "📦 Downloaded file size: $size bytes"
+        if ($size -lt 100000) {
+            Write-Host "❌ Downloaded file too small — likely invalid." -ForegroundColor Red
+            throw "Agent download integrity check failed."
+        }
+
+        Write-Host "✅ Agent downloaded and validated." -ForegroundColor Green
+    } catch {
+        Write-Host "`n❌ Agent download failed: $_" -ForegroundColor Red
+        Stop-Transcript
+        Pause-Script
+        return
+    }
+
+    # Prompt for install inputs only if download succeeded
+    $company = Read-Host "Enter Company ID"
+    $tenant  = Read-Host "Enter Tenant ID"
+    $secret  = Read-Host "Enter Secret Key"
+
+    try {
         $installCmd = "`"$installer`" -c $company -e $tenant -j $secret -i"
         Write-Host "`n🚀 Running inline install command:" -ForegroundColor Cyan
         Write-Host "$installCmd" -ForegroundColor Yellow
@@ -48,10 +64,10 @@ function Run-AgentInstaller {
         & "$installer" -c $company -e $tenant -j $secret -i
 
         Write-Host "`n✅ Agent executed inline successfully." -ForegroundColor Green
-        $result = "Executed inline"
+        $result = "Success"
     } catch {
-        Write-Host "`n❌ Installation failed: $_" -ForegroundColor Red
-        $result = "Failed"
+        Write-Host "`n❌ Agent execution failed: $_" -ForegroundColor Red
+        $result = "Execution failed"
     }
 
     $summary = [PSCustomObject]@{
