@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
-# ║ Version: 1.1 | 2025-07-21                                  ║
+# ║ Version: 1.2 | Fixed version detection from EXE metadata   ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -33,12 +33,15 @@ function Run-AgentInstaller {
         Invoke-WebRequest -Uri $agentUrl -OutFile $installer -UseBasicParsing
         Write-Host "✅ Agent downloaded to: $installer" -ForegroundColor Green
         $downloaded = $true
+
         if (Test-Path $installer) {
-            $version = (Get-Item $installer).VersionInfo.ProductVersion
+            $versionInfo = (Get-Item $installer).VersionInfo
+            $version = $versionInfo.ProductVersion
             Write-Host "📦 Detected agent version: $version" -ForegroundColor Cyan
         }
     } catch {
         Write-Host "❌ Failed to download agent." -ForegroundColor Red
+        $version = "Download failed"
     }
 
     if ($downloaded -and (Test-Path $installer)) {
