@@ -19,7 +19,7 @@ Start-Transcript -Path $txtFile -Append
 
 # Step 0: Prepare uninstall.bat
 Write-Host "`n🧪 Step 0: Preparing uninstall batch file..." -ForegroundColor Cyan
-$batUrl = "https://example.com/uninstall.bat"  # Replace with actual URL if available
+$batUrl = "https://example.com/uninstall.bat"  # Replace if needed
 $batContent = $null
 
 try {
@@ -79,12 +79,12 @@ foreach ($key in $regKeys) {
 }
 $log += [PSCustomObject]@{ Step = "Default Uninstall"; Status = "Completed"; Time = (Get-Date) }
 
-# Step 2: Advanced Uninstall
+# Step 2: Advanced Uninstall (inline execution)
 Write-Host "`n🧪 Step 2 of 2: Executing Advanced Uninstall Script..." -ForegroundColor Cyan
 try {
-    Start-Process -FilePath $batPath -Wait
-    Write-Host "✅ uninstall.bat executed." -ForegroundColor Green
-    $log += [PSCustomObject]@{ Step = "Advanced Uninstall"; Status = "Executed"; File = $batPath; Time = (Get-Date) }
+    & $batPath
+    Write-Host "✅ uninstall.bat executed inline." -ForegroundColor Green
+    $log += [PSCustomObject]@{ Step = "Advanced Uninstall"; Status = "Executed Inline"; File = $batPath; Time = (Get-Date) }
 } catch {
     Write-Host "❌ Failed to execute uninstall.bat: $_" -ForegroundColor Red
     $log += [PSCustomObject]@{ Step = "Advanced Uninstall"; Status = "Failed"; Time = (Get-Date) }
