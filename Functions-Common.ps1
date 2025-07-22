@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
-# ║ 🔧 CS Toolbox – Shared Functions v3.2 (Cleaned)            ║
-# ║ Includes: Header, Export, ZIP, Cleanup, Email, Helpers     ║
+# ║ 🔧 CS Toolbox – Shared Functions v3.3                      ║
+# ║ ZIP with Outlook attach + fallback, plus Export/Cleanup    ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 function Show-Header {
@@ -82,14 +82,24 @@ function Invoke-ZipAndEmailResults {
         return
     }
 
-    $mailto = "mailto:support@connectsecure.com?subject=CS Toolbox Results - $env:COMPUTERNAME&body=Attached is the ZIP file: $zipName"
+    # Try Outlook COM first
     try {
-        Start-Process $mailto
+        $outlook = New-Object -ComObject Outlook.Application
+        $mail = $outlook.CreateItem(0)
+        $mail.To = "support@connectsecure.com"
+        $mail.Subject = "CS Toolbox Results - $env:COMPUTERNAME"
+        $mail.Body = "Attached is the ZIP file containing validation output from this system."
+        $mail.Attachments.Add($zipPath)
+        $mail.Display()
+        Write-Host "📧 Outlook message created with attachment." -ForegroundColor Green
     } catch {
-        Write-Host "Unable to launch email client. Please attach ZIP manually." -ForegroundColor Yellow
+        # Fallback to mailto without attachment
+        Write-Host "⚠️ Outlook not available. Launching default mail client..." -ForegroundColor Yellow
+        $mailto = "mailto:support@connectsecure.com?subject=CS Toolbox Results - $env:COMPUTERNAME&body=Please attach ZIP file manually: $zipName"
+        Start-Process $mailto
     }
 
-    Write-Host "`nReady to email: $zipPath" -ForegroundColor Cyan
+    Write-Host "`nZIP path: $zipPath" -ForegroundColor Cyan
     Pause-Script
 }
 
