@@ -1,44 +1,57 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
 # ║ Version: 1.0 | 2025-07-21                                  ║
-# ║ Includes version check, install, logging, ZIP, cleanup     ║
+# ║ PowerShell 5.1 compatible: no null coalescing              ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
-$TempDir = "C:\Script-Temp"; if (-not (Test-Path $TempDir)) { New-Item $TempDir -ItemType Directory | Out-Null }
+$TempDir = "C:\Script-Temp"
+if (-not (Test-Path $TempDir)) {
+    New-Item -Path $TempDir -ItemType Directory | Out-Null
+}
 
 function Get-AgentVersion {
     $url = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
-    $headVer = $getVer = $null
+    $headVer = $null
+    $getVer = $null
 
     Write-Host "🔍 Checking for latest agent version..."
 
-    # HEAD check
     Write-Host "➡ Attempting HEAD request to extract version..."
     try {
         $resp = Invoke-WebRequest -Uri $url -Method Head -UseBasicParsing
-        $headVer = $resp.Headers["X-Agent-Version"] ?? ($resp.BaseResponse.ResponseUri.Segments[-1])
+        $headVer = $resp.Headers["X-Agent-Version"]
+        if (-not $headVer -and $resp.BaseResponse -and $resp.BaseResponse.ResponseUri) {
+            $segments = $resp.BaseResponse.ResponseUri.Segments
+            if ($segments.Count -gt 0) {
+                $headVer = $segments[-1].TrimEnd('/')
+            }
+        }
         if ($headVer) {
-            Write-Host "✅ Found version in headers: $headVer"
+            Write-Host "✅ Found version in headers or redirect: $headVer"
         }
     } catch {
         Write-Host "❌ HEAD version check failed." -ForegroundColor Yellow
     }
 
-    # GET check fallback
     Write-Host "➡ Attempting GET request to extract version..."
     try {
         $get = Invoke-WebRequest -Uri $url -Method Get -UseBasicParsing
-        $getVer = ($get.BaseResponse.ResponseUri.Segments[-1])
-        if ($getVer) {
-            Write-Host "✅ Found version in GET redirect: $getVer"
+        if ($get.BaseResponse -and $get.BaseResponse.ResponseUri) {
+            $segments = $get.BaseResponse.ResponseUri.Segments
+            if ($segments.Count -gt 0) {
+                $getVer = $segments[-1].TrimEnd('/')
+                Write-Host "✅ Found version in GET redirect: $getVer"
+            }
         }
     } catch {
         Write-Host "❌ GET version check failed." -ForegroundColor Yellow
     }
 
-    return ($headVer ?? $getVer ?? "Unknown")
+    if ($headVer) { return $headVer }
+    elseif ($getVer) { return $getVer }
+    else { return "Unknown" }
 }
 
 function Run-AgentInstaller {
