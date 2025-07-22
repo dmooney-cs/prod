@@ -35,24 +35,29 @@ function Run-AgentInstall {
         }
     }
 
-    # Prompt for input
+    # Prompt for credentials
     $company = Read-Host "Enter Company ID"
     $tenant  = Read-Host "Enter Tenant ID"
     $key     = Read-Host "Enter Secret Key"
 
-    # Enforce TLS and get download URL
+    # Download agent from resolved plain-text URL
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $downloadUrl = Invoke-RestMethod -Method Get -Uri "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
+    $downloadUrl = (Invoke-WebRequest -Uri "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows" -UseBasicParsing).Content
     $agentPath = "$env:TEMP\\cybercnsagent.exe"
 
-    # Download agent
     Write-Host "`n⬇️ Downloading agent from:" -ForegroundColor Cyan
     Write-Host $downloadUrl -ForegroundColor Gray
     Invoke-WebRequest -Uri $downloadUrl -OutFile $agentPath -UseBasicParsing
 
     $size = (Get-Item $agentPath).Length / 1MB
     Write-Host "✅ Agent downloaded to $agentPath ($([math]::Round($size,2)) MB)" -ForegroundColor Green
-    $log += [PSCustomObject]@{ Step = "Download Agent"; Status = "Success"; Path = $agentPath; SizeMB = [math]::Round($size,2); Time = $ts }
+    $log += [PSCustomObject]@{
+        Step     = "Download Agent"
+        Status   = "Success"
+        Path     = $agentPath
+        SizeMB   = [math]::Round($size,2)
+        Time     = $ts
+    }
 
     # Install agent inline
     Write-Host "`n🚀 Installing agent..." -ForegroundColor Cyan
