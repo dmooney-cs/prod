@@ -1,7 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Validation Tool A                      ║
-# ║ Version: A.2 | 2025-07-21                                   ║
-# ║ Includes Office, Drivers, Roaming Apps, Extensions, ZIP     ║
+# ║ Version: A.3 | Office, Drivers, Dual Roaming, Extensions   ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -9,28 +8,11 @@ Ensure-ExportFolder
 
 function Run-OfficeValidation {
     Show-Header "Office Installation Audit"
-
-    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $hostname = $env:COMPUTERNAME
-    $exportDir = "C:\Script-Export"
-    if (-not (Test-Path $exportDir)) {
-        New-Item -Path $exportDir -ItemType Directory | Out-Null
-    }
-
     $apps = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, `
                               HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue |
             Where-Object { $_.DisplayName -match "Office|Microsoft 365|Word|Excel|Outlook" } |
             Select-Object DisplayName, DisplayVersion, Publisher, InstallDate
-
-    if ($apps) {
-        $file = "$exportDir\OfficeAudit_$timestamp_$hostname.csv"
-        $apps | Export-Csv -Path $file -NoTypeInformation -Encoding UTF8
-        Write-Host "`n✅ Office audit results exported to:" -ForegroundColor Green
-        Write-Host $file -ForegroundColor Yellow
-    } else {
-        Write-Host "`nNo Microsoft Office applications found." -ForegroundColor Yellow
-    }
-
+    Export-Data -Object $apps -BaseName "OfficeAudit"
     Pause-Script
 }
 
@@ -43,22 +25,38 @@ function Run-DriverAudit {
 
 function Run-RoamingProfileApps {
     Show-Header "Roaming Profile Application Audit"
-    $profiles = Get-CimInstance Win32_UserProfile | Where-Object { $_.Special -eq $false -and $_.Loaded -eq $false }
     $results = @()
+    $profiles = Get-CimInstance Win32_UserProfile | Where-Object { $_.Special -eq $false }
 
     foreach ($p in $profiles) {
-        $user = $p.LocalPath.Split("\")[-1]
+        $user = $p.LocalPath.Split('\')[-1]
+
+        # Method 1: AppData folders
+        $apps = Get-ChildItem "C:\Users\$user\AppData\Local" -Directory -ErrorAction SilentlyContinue
+        foreach ($a in $apps) {
+            $results += [PSCustomObject]@{
+                Profile = $user
+                Name    = $a.Name
+                Version = ""
+                Source  = "AppFolder"
+            }
+        }
+
+        # Method 2: NTUSER.DAT hive load
         $regPath = "$($p.LocalPath)\NTUSER.DAT"
         if (Test-Path $regPath) {
             try {
                 $hive = "HKU\TempHive_$user"
                 reg load $hive $regPath | Out-Null
-                $apps = Get-ItemProperty "Registry::$hive\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue
-                foreach ($app in $apps) {
-                    $results += [PSCustomObject]@{
-                        Profile = $user
-                        Name    = $app.DisplayName
-                        Version = $app.DisplayVersion
+                $entries = Get-ItemProperty "Registry::$hive\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue
+                foreach ($app in $entries) {
+                    if ($app.DisplayName) {
+                        $results += [PSCustomObject]@{
+                            Profile = $user
+                            Name    = $app.DisplayName
+                            Version = $app.DisplayVersion
+                            Source  = "Registry"
+                        }
                     }
                 }
                 reg unload $hive | Out-Null
@@ -129,8 +127,14 @@ function Show-CollectionMenuA {
         "2" { Run-DriverAudit }
         "3" { Run-RoamingProfileApps }
         "4" { Run-BrowserExtensionDetails }
-        "5" { Invoke-ZipAndEmailResults }
-        "6" { Invoke-CleanupExportFolder }
+        "5" {
+            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+            Invoke-ZipAndEmailResults
+        }
+        "6" {
+            irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
+            Invoke-CleanupExportFolder
+        }
         "Q" { return }
         default { Write-Host "Invalid selection." -ForegroundColor Red; Pause-Script }
     }
