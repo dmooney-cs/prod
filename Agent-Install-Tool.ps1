@@ -1,6 +1,6 @@
 # ╔═════════════════════════════════════════════════════════════╗
-# ║ 🧰 CS Tech Toolbox – Agent Installer Tool                  ║
-# ║ Version: 1.3 | Detects version, includes install menu       ║
+# ║ 🧰 CS Tech Toolbox – Agent Installer Utility               ║
+# ║ Version: 1.4 | Detects agent version and shows it          ║
 # ╚═════════════════════════════════════════════════════════════╝
 
 irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
@@ -12,17 +12,18 @@ if (-not (Test-Path $TempDir)) {
 
 $installer = "$TempDir\cybercnsagent.exe"
 $agentUrl = "https://configuration.myconnectsecure.com/api/v4/configuration/agentlink?ostype=windows"
-$detectedVersion = "Unknown"
+$Global:detectedVersion = "Unknown"
 
 # Download and detect version before menu
 try {
     Invoke-WebRequest -Uri $agentUrl -OutFile $installer -UseBasicParsing
     if (Test-Path $installer) {
         $versionInfo = (Get-Item $installer).VersionInfo
-        $detectedVersion = $versionInfo.ProductVersion
+        $Global:detectedVersion = $versionInfo.ProductVersion
     }
 } catch {
     Write-Host "⚠️ Could not download agent or detect version." -ForegroundColor Yellow
+    $Global:detectedVersion = "Unavailable"
 }
 
 function Run-AgentInstaller {
@@ -36,7 +37,7 @@ function Run-AgentInstaller {
     $hostname = $env:COMPUTERNAME
     $logFile = "$ExportFolder\AgentInstall-Log-$timestamp-$hostname.txt"
     $summaryPath = "$ExportFolder\AgentInstall-Summary-$timestamp-$hostname.csv"
-    $version = $detectedVersion
+    $version = $Global:detectedVersion
     $result = "Not Run"
 
     Start-Transcript -Path $logFile -Force
@@ -99,7 +100,7 @@ function Show-AgentInstallerMenu {
     Write-Host "║   🧰 CS Tech Toolbox – Agent Installer Menu         ║" -ForegroundColor Cyan
     Write-Host "╚════════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "Detected Agent Version: $detectedVersion" -ForegroundColor Magenta
+    Write-Host "Detected Agent Version: $Global:detectedVersion" -ForegroundColor Magenta
     Write-Host ""
 
     $menu = @(
