@@ -76,18 +76,12 @@ function Run-AgentInstall {
     Export-Data -Object $log -BaseName $baseName
     Write-Host "`n📄 Transcript saved to: $txtPath"
 
-    # ✅ Re-import functions to restore scope post-export
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/Functions-Common.ps1 | iex
-
-    Run-ZipAndEmailResults
-    Run-CleanupExportFolder
-
     if (Test-Path $agentPath) {
         Remove-Item $agentPath -Force -ErrorAction SilentlyContinue
         Write-Host "`n🧹 Cleaned up installer from: $agentPath" -ForegroundColor DarkGray
     }
 
-    Pause-Script "Install routine complete. Press any key to close."
+    Pause-Script "Install complete. Use the main menu to zip/email results if needed."
     Stop-Transcript
 }
 
