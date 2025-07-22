@@ -1,7 +1,4 @@
-# ╔═════════════════════════════════════════════════════════════╗
-# ║ 🔧 CS Toolbox – Shared Functions v3.6                       ║
-# ║ ZIP with Outlook attach + fallback, Export/Cleanup + Logs  ║
-# ╚═════════════════════════════════════════════════════════════╝
+# 🔧 CS Toolbox – Shared Functions v3.7 (Safe for irm | iex)
 
 function Show-Header {
     param ([string]$Title)
@@ -66,15 +63,9 @@ function Write-ExportPath {
 function Show-FolderContents {
     param ([string]$Folder)
     if (Test-Path $Folder) {
-        $files = Get-ChildItem $Folder -File
-        if ($files) {
-            Write-Host "📂 Contents of $($Folder):" -ForegroundColor Gray
-            $files | ForEach-Object {
-                "{0,-40} {1,10:N0} bytes" -f $_.Name, $_.Length
-            } | Write-Host -ForegroundColor DarkGray
-        } else {
-            Write-Host "Folder is empty." -ForegroundColor Yellow
-        }
+        Write-Host "📂 Export folder: $Folder" -ForegroundColor Gray
+    } else {
+        Write-Host "Folder not found: $Folder" -ForegroundColor Yellow
     }
 }
 
