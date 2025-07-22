@@ -1,17 +1,16 @@
 # ╔═════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Tech Toolbox – Validation Tool B                      ║
-# ║ Version: B.5 | 2025-07-22                                   ║
+# ║ Version: B.6 | 2025-07-22                                   ║
 # ║ Includes VC++ Detection, Windows Patching, ZIP, Cleanup     ║
 # ╚═════════════════════════════════════════════════════════════╝
 
+irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
 Ensure-ExportFolder
 
 function Run-VCPPValidation {
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Show-Header "VC++ Redistributables + Dependency Audit"
     $results = @()
 
-    # Registry-based Redistributables
     $keys = @(
         "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
         "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
@@ -31,7 +30,6 @@ function Run-VCPPValidation {
         }
     }
 
-    # Binary Dependency Scan
     $folders = @( "$env:ProgramFiles", "$env:ProgramFiles(x86)", "$env:SystemRoot\System32" )
     $vcDlls = @("msvcr", "msvcp", "vcruntime")
 
@@ -63,7 +61,6 @@ function Run-VCPPValidation {
 }
 
 function Run-WindowsPatchCheck {
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Show-Header "Windows Patch Details – HotFix / WMIC / Osquery"
 
     try {
@@ -101,12 +98,10 @@ function Run-WindowsPatchCheck {
 }
 
 function Run-Zip {
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Invoke-ZipAndEmailResults
 }
 
 function Run-Cleanup {
-    irm https://raw.githubusercontent.com/dmooney-cs/prod/main/Functions-Common.ps1 | iex
     Invoke-CleanupExportFolder
 }
 
