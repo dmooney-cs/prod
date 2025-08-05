@@ -1,4 +1,4 @@
-$zipUrl = "https://your-download-link.com/prod-main3.zip"
+$zipUrl = "https://github.com/dmooney-cs/prod/raw/main/cs-toolbox-v1-0.zip"
 $zipPath = "$env:TEMP\cs-toolbox.zip"
 $extractPath = "C:\CS-Toolbox-TEMP"
 
