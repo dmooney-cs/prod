@@ -1,42 +1,60 @@
-$zipUrl = "https://github.com/dmooney-cs/prod/raw/main/cs-toolbox-v1-0.zip"
+# ╔═════════════════════════════════════════════════════════════╗
+# ║ 🧰 CS Toolbox – Download + Launch from ZIP                 ║
+# ║ Version: 1.1 | Updated: 2025-08-07                          ║
+# ╚═════════════════════════════════════════════════════════════╝
+
+$zipUrl = "https://github.com/dmooney-cs/prod/raw/main/prod-01-01.zip"
 $zipPath = "$env:TEMP\cs-toolbox.zip"
 $extractPath = "C:\CS-Toolbox-TEMP"
+$launcherScript = "CS-Toolbox-Launcher.ps1"
 
-# Prompt for download
-$response = Read-Host "Do you want to download the ConnectSecure Technician Toolbox? (Y/N)"
-if ($response.ToUpper() -ne "Y") {
-    Write-Host "Aborted by user." -ForegroundColor Yellow
+function Pause-Enter($msg = "Press Enter to continue...") {
+    Write-Host ""
+    Read-Host $msg | Out-Null
+}
+
+# Prompt user
+Clear-Host
+Write-Host "====================================================="
+Write-Host "     🧰 ConnectSecure Toolbox Downloader & Launcher"
+Write-Host "====================================================="
+Write-Host ""
+Pause-Enter "Press Enter to download toolbox from GitHub..."
+
+# Download ZIP
+try {
+    Write-Host "`n⬇ Downloading ZIP from GitHub..."
+    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+    Write-Host "✅ Downloaded to: $zipPath" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Failed to download ZIP: $_" -ForegroundColor Red
+    Pause-Enter
     exit
 }
 
-# Start the download
-Write-Host "Downloading toolbox..." -ForegroundColor Cyan
-Start-BitsTransfer -Source $zipUrl -Destination $zipPath
-
-# Wait up to 10 seconds for the file to appear
-$timeout = 0
-while (!(Test-Path $zipPath) -and $timeout -lt 10) {
-    Start-Sleep -Seconds 1
-    $timeout++
+# Extract ZIP
+try {
+    if (Test-Path $extractPath) {
+        Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+    Write-Host "✅ Extracted to: $extractPath" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Failed to extract ZIP: $_" -ForegroundColor Red
+    Pause-Enter
+    exit
 }
 
-if (!(Test-Path $zipPath)) {
-    Write-Host "❌ Download did not complete within 10 seconds. Exiting." -ForegroundColor Red
-    exit 1
+# Launch toolbox
+$launcherPath = Join-Path $extractPath $launcherScript
+
+if (Test-Path $launcherPath) {
+    Pause-Enter "`nPress Enter to launch the toolbox..."
+    Write-Host "`n🚀 Launching: $launcherPath`n"
+    Set-Location $extractPath
+    . $launcherPath  # runs inline in same window
+} else {
+    Write-Host "❌ Launcher script not found: $launcherPath" -ForegroundColor Red
+    Pause-Enter
+    exit
 }
-
-# Extract contents
-Write-Host "Extracting toolbox..." -ForegroundColor Cyan
-Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-
-# Locate launcher recursively
-$launcher = Get-ChildItem -Path $extractPath -Filter "CS-Toolbox-Launcher.ps1" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-
-if (-not $launcher) {
-    Write-Host "❌ Launcher not found after extraction. Exiting." -ForegroundColor Red
-    exit 1
-}
-
-# Prompt to start
-Read-Host "✅ Download complete. Press ENTER to launch the ConnectSecure Technician Toolbox"
-Start-Process powershell -ArgumentList "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $launcher.FullName
