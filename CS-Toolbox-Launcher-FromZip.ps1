@@ -1,6 +1,6 @@
 # ╔════════════════════════════════════════════════════════════════════════╗
 # ║ 🧰 CS Toolbox – Download + Launch from ZIP                             ║
-# ║ Version: 1.3 | Hardcoded Path | Updated: 2025-08-07                    ║
+# ║ Version: 1.4 | ExecutionPolicy Bypass Enabled                          ║
 # ╚════════════════════════════════════════════════════════════════════════╝
 
 $zipUrl = "https://github.com/dmooney-cs/prod/raw/main/prod-01-01.zip"
@@ -44,14 +44,14 @@ try {
     exit
 }
 
-# Step 3: Hardcoded Launch
+# Step 3: Launch new process with ExecutionPolicy Bypass
 if (Test-Path $launcherPath) {
     Pause-Enter "`nPress Enter to launch the CS Toolbox..."
-    Write-Host "`n🚀 Launching: $launcherPath`n"
-    Set-Location "C:\CS-Toolbox-TEMP\prod-01-01"
-    . "$launcherPath"  # Run inline in current PowerShell session
+    Write-Host "`n🚀 Launching with ExecutionPolicy Bypass...`n"
+
+    Start-Process powershell.exe -ArgumentList "-ExecutionPolicy Bypass -NoLogo -NoExit -File `"$launcherPath`""
 } else {
-    Write-Host "❌ Launcher script not found at hardcoded path:`n$launcherPath" -ForegroundColor Red
+    Write-Host "❌ Launcher script not found at:`n$launcherPath" -ForegroundColor Red
     Pause-Enter
     exit
 }
