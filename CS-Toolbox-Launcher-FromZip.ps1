@@ -1,6 +1,11 @@
 # =====================================================================
 # ConnectSecure Technicians Toolbox - Main Launcher (FromZip)
-# Version: 2.2 (2025-08-10)
+# Version: 2.2.1 (2025-08-10)
+# Notes:
+#  - Forces session execution policy (Bypass) to avoid prompts.
+#  - Loads Functions-Common.ps1.
+#  - Uses -f formatting anywhere a variable is followed by a colon to
+#    avoid "$var:" parsing errors in PowerShell.
 # =====================================================================
 
 # 0) Force session-only execution policy to avoid "Run this script?" prompts
@@ -15,7 +20,7 @@ $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $commonPath = Join-Path $scriptRoot 'Functions-Common.ps1'
 
 if (-not (Test-Path $commonPath)) {
-    Write-Host "❌ ERROR: Functions-Common.ps1 not found in $scriptRoot" -ForegroundColor Red
+    Write-Host ("❌ ERROR: Functions-Common.ps1 not found in {0}" -f $scriptRoot) -ForegroundColor Red
     Write-Host "Press any key to exit..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     return
