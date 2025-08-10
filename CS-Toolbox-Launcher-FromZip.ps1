@@ -1,129 +1,111 @@
-# =====================================================================
-# ConnectSecure Technicians Toolbox - Main Launcher (FromZip)
-# Version: 2.2.1 (2025-08-10)
-# Notes:
-#  - Forces session execution policy (Bypass) to avoid prompts.
-#  - Loads Functions-Common.ps1.
-#  - Uses -f formatting anywhere a variable is followed by a colon to
-#    avoid "$var:" parsing errors in PowerShell.
-# =====================================================================
+# ================================================================
+# ConnectSecure Toolbox Bootstrap (Run-ConnectSecure-Toolbox.ps1)
+# Downloads ZIP, extracts to C:\CS-Toolbox-TEMP, launches launcher
+# Safe for Windows PowerShell 5.1
+# ================================================================
 
-# 0) Force session-only execution policy to avoid "Run this script?" prompts
+# 0) Make this session permissive so no prompts stop us
+try { Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force } catch {}
+
+# 1) Networking hardening (TLS 1.2+)
 try {
-    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
 } catch {
-    Write-Host "⚠ Unable to set execution policy for this session. Some scripts may prompt." -ForegroundColor Yellow
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 }
 
-# 1) Load shared functions first – required for Show-Header and others
-$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$commonPath = Join-Path $scriptRoot 'Functions-Common.ps1'
+# 2) Inputs / paths
+$zipUrl      = "https://github.com/dmooney-cs/prod/raw/main/cs-toolbox-v1-0.zip"
+$zipPath     = Join-Path $env:TEMP "cs-toolbox.zip"
+$extractPath = "C:\CS-Toolbox-TEMP"
 
-if (-not (Test-Path $commonPath)) {
-    Write-Host ("❌ ERROR: Functions-Common.ps1 not found in {0}" -f $scriptRoot) -ForegroundColor Red
-    Write-Host "Press any key to exit..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    return
-}
+# 3) Confirm
+Write-Host "This will download the ConnectSecure Technician Toolbox to:" -ForegroundColor Cyan
+Write-Host "  $extractPath" -ForegroundColor Gray
+$null = Read-Host "Press ENTER to continue (or Ctrl+C to cancel)"
 
+# 4) Prep folder
 try {
-    $code = Get-Content -Path $commonPath -Encoding UTF8 -Raw
-    Invoke-Expression $code
+    if (-not (Test-Path $extractPath)) { New-Item -Path $extractPath -ItemType Directory -Force | Out-Null }
 } catch {
-    Write-Host ("❌ ERROR: Failed to load Functions-Common.ps1: {0}" -f $_.Exception.Message) -ForegroundColor Red
-    Write-Host "Press any key to exit..."
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-    return
+    Write-Host "❌ Unable to create $extractPath : $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
 }
 
-Ensure-ExportFolder
-
-# 2) Banner
-Clear-Host
-Show-Header "ConnectSecure Technicians Toolbox"
-
-# 3) Menu
-function Show-MainMenu {
-    Write-Host ""
-    Write-Host " [1] OSQuery Data Collection        - Browser/Apps via osquery"
-    Write-Host " [2] Nmap Data Collection           - Port/Service scan via nmap"
-    Write-Host " [3] Agent Menu Tool                - Install, Uninstall, Status, Maintenance"
-    Write-Host " [4] Active Directory Tools         - Users, Groups, OUs, GPOs"
-    Write-Host " [5] System Info A                  - Firewall, Defender, Disk/SMART"
-    Write-Host " [6] System Info B                  - Pending Reboot, App Logs, Startup Audit"
-    Write-Host " [7] Utilities                      - Running Services, Disk Space"
-    Write-Host ""
-    Write-Host " [Z] Zip and Email Results          - Compress results for support"
-    Write-Host " [C] Cleanup Toolbox Data           - Remove temp/output and self-clean"
-    Write-Host " [Q] Quit"
-    Write-Host ""
-}
-
-function Invoke-MenuAction {
-    param([Parameter(Mandatory=$true)][string]$Choice)
-
-    $toolMap = @{
-        '1' = 'Osquery-Data-Collection.ps1'
-        '2' = 'Nmap-Data-Collection.ps1'
-        '3' = 'Agent-Menu-Tool.ps1'
-        '4' = 'ValidationTool-AD.ps1'
-        '5' = 'SystemInfo-A.ps1'
-        '6' = 'SystemInfo-B.ps1'
-        '7' = 'Tools-Utilities.ps1'
-        'Z' = 'ZipResults'
-        'C' = 'Cleanup'
-        'Q' = 'Quit'
-    }
-
-    $key = $Choice.ToUpperInvariant()
-    if (-not $toolMap.ContainsKey($key)) {
-        Write-Host "Invalid selection." -ForegroundColor Yellow
-        return $false
-    }
-
-    switch ($key) {
-        'Z' {
-            Zip-Results
-            Pause-Script "Press any key to return to the menu..."
-            return $false
-        }
-        'C' {
-            Invoke-FinalCleanupAndExit
-            return $true
-        }
-        'Q' { return $true }
-        default {
-            $toolName = $toolMap[$key]
-            $toolPath = Join-Path $scriptRoot $toolName
-            if (-not (Test-Path $toolPath)) {
-                Write-Host ("ERROR launching {0}: File not found." -f $toolName) -ForegroundColor Red
-                Pause-Script
-                return $false
-            }
-
-            # Launch in a new elevated window with ExecutionPolicy Bypass
-            $ok = Launch-Tool -Path $toolPath -Elevated:$true -NewWindow:$true
-            if (-not $ok) {
-                Write-Host ("ERROR launching {0}." -f $toolName) -ForegroundColor Red
-                Pause-Script
-            }
-            return $false
-        }
+# 5) Download (BITS first, fallback to Invoke-WebRequest)
+Write-Host "Downloading toolbox..." -ForegroundColor Cyan
+$downloadOk = $false
+try {
+    Import-Module BitsTransfer -ErrorAction SilentlyContinue | Out-Null
+    Start-BitsTransfer -Source $zipUrl -Destination $zipPath -ErrorAction Stop
+    $downloadOk = $true
+} catch {
+    Write-Host "BITS failed, trying Invoke-WebRequest..." -ForegroundColor Yellow
+    try {
+        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing -ErrorAction Stop
+        $downloadOk = $true
+    } catch {
+        Write-Host "❌ Download failed: $($_.Exception.Message)" -ForegroundColor Red
+        exit 1
     }
 }
 
-# 4) Loop
-while ($true) {
-    Show-Header "ConnectSecure Technicians Toolbox"
-    Show-MainMenu
-    $choice = Read-Host "Enter your choice"
-    if ([string]::IsNullOrWhiteSpace($choice)) {
-        Write-Host "Please enter a selection." -ForegroundColor Yellow
-        Start-Sleep -Milliseconds 700
-        continue
-    }
-    $quit = Invoke-MenuAction -Choice $choice
-    if ($quit) { break }
+# 6) Verify download appeared (with brief wait)
+$deadline = (Get-Date).AddSeconds(10)
+while (-not (Test-Path $zipPath) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 300 }
+if (-not (Test-Path $zipPath)) {
+    Write-Host "❌ Download did not produce a file at $zipPath" -ForegroundColor Red
+    exit 1
 }
 
-Write-Host "Goodbye." -ForegroundColor Cyan
+# 7) Unblock the ZIP (avoid Mark-of-the-Web)
+try { Unblock-File -Path $zipPath -ErrorAction SilentlyContinue } catch {}
+
+# 8) Extract
+Write-Host "Extracting toolbox..." -ForegroundColor Cyan
+try {
+    if (Test-Path $extractPath) {
+        # Keep folder, but clear previous extracted content if desired:
+        # Remove-Item -Path (Join-Path $extractPath '*') -Recurse -Force -ErrorAction SilentlyContinue
+        # (Leaving existing files can help with incremental updates; adjust as you prefer.)
+    }
+    Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+} catch {
+    Write-Host "❌ Extraction failed: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+
+# 9) Unblock all extracted files to suppress SmartScreen/zone prompts
+try {
+    Get-ChildItem -Path $extractPath -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+        try { Unblock-File -Path $_.FullName -ErrorAction SilentlyContinue } catch {}
+    }
+} catch {}
+
+# 10) Locate a launcher (support both names)
+$launcher = Get-ChildItem -Path $extractPath -Recurse -Include "CS-Toolbox-Launcher-FromZip.ps1","CS-Toolbox-Launcher.ps1" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $launcher) {
+    Write-Host "❌ Launcher not found after extraction." -ForegroundColor Red
+    Write-Host "   Looked for: CS-Toolbox-Launcher-FromZip.ps1 or CS-Toolbox-Launcher.ps1" -ForegroundColor Yellow
+    exit 1
+}
+
+# 11) Summary + launch
+Write-Host ""
+Write-Host "✅ Download & Extract complete." -ForegroundColor Green
+Write-Host ("   ZIP:       {0}" -f $zipPath) -ForegroundColor Gray
+Write-Host ("   Extracted: {0}" -f $extractPath) -ForegroundColor Gray
+Write-Host ("   Launcher:  {0}" -f $launcher.FullName) -ForegroundColor Gray
+$null = Read-Host "Press ENTER to launch the ConnectSecure Technician Toolbox"
+
+# Always launch with ExecutionPolicy Bypass in a new window
+try {
+    Start-Process -FilePath "powershell.exe" -ArgumentList @(
+        "-NoLogo","-NoProfile",
+        "-ExecutionPolicy","Bypass",
+        "-File", "`"$($launcher.FullName)`""
+    ) -Verb Open | Out-Null
+} catch {
+    Write-Host "❌ Failed to start launcher: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
