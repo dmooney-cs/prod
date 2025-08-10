@@ -25,7 +25,7 @@ try {
     $code = Get-Content -Path $commonPath -Encoding UTF8 -Raw
     Invoke-Expression $code
 } catch {
-    Write-Host "❌ ERROR: Failed to load Functions-Common.ps1: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host ("❌ ERROR: Failed to load Functions-Common.ps1: {0}" -f $_.Exception.Message) -ForegroundColor Red
     Write-Host "Press any key to exit..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     return
@@ -77,19 +77,31 @@ function Invoke-MenuAction {
     }
 
     switch ($key) {
-        'Z' { Zip-Results; Pause-Script "Press any key to return to the menu..."; return $false }
-        'C' { Invoke-FinalCleanupAndExit; return $true }
+        'Z' {
+            Zip-Results
+            Pause-Script "Press any key to return to the menu..."
+            return $false
+        }
+        'C' {
+            Invoke-FinalCleanupAndExit
+            return $true
+        }
         'Q' { return $true }
         default {
             $toolName = $toolMap[$key]
             $toolPath = Join-Path $scriptRoot $toolName
             if (-not (Test-Path $toolPath)) {
-                Write-Host "ERROR launching $toolName: File not found." -ForegroundColor Red
+                Write-Host ("ERROR launching {0}: File not found." -f $toolName) -ForegroundColor Red
                 Pause-Script
                 return $false
             }
+
+            # Launch in a new elevated window with ExecutionPolicy Bypass
             $ok = Launch-Tool -Path $toolPath -Elevated:$true -NewWindow:$true
-            if (-not $ok) { Write-Host "ERROR launching $toolName." -ForegroundColor Red; Pause-Script }
+            if (-not $ok) {
+                Write-Host ("ERROR launching {0}." -f $toolName) -ForegroundColor Red
+                Pause-Script
+            }
             return $false
         }
     }
@@ -100,7 +112,11 @@ while ($true) {
     Show-Header "ConnectSecure Technicians Toolbox"
     Show-MainMenu
     $choice = Read-Host "Enter your choice"
-    if ([string]::IsNullOrWhiteSpace($choice)) { Write-Host "Please enter a selection." -ForegroundColor Yellow; Start-Sleep -Milliseconds 700; continue }
+    if ([string]::IsNullOrWhiteSpace($choice)) {
+        Write-Host "Please enter a selection." -ForegroundColor Yellow
+        Start-Sleep -Milliseconds 700
+        continue
+    }
     $quit = Invoke-MenuAction -Choice $choice
     if ($quit) { break }
 }
