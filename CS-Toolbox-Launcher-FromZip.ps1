@@ -1,4 +1,4 @@
-$zipUrl = "https://github.com/dmooney-cs/prod/raw/main/cs-toolbox-v1-0.zip"
+$zipUrl = "https://github.com/dmooney-cs/prod/raw/main/prod-01-01.zip"
 $zipPath = "$env:TEMP\cs-toolbox.zip"
 $extractPath = "C:\CS-Toolbox-TEMP"
 
@@ -25,9 +25,22 @@ if (!(Test-Path $zipPath)) {
     exit 1
 }
 
-# Extract contents
+# Ensure target exists and is empty
+if (Test-Path $extractPath) {
+    Remove-Item -Path $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+}
+New-Item -Path $extractPath -ItemType Directory -Force | Out-Null
+
+# Extract contents (flatten if the ZIP has a top-level folder)
 Write-Host "Extracting toolbox..." -ForegroundColor Cyan
 Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+
+# If everything got dumped in a subfolder, move it up
+$topItems = Get-ChildItem -Path $extractPath
+if ($topItems.Count -eq 1 -and $topItems[0].PSIsContainer) {
+    Get-ChildItem -Path $topItems[0].FullName -Force | Move-Item -Destination $extractPath -Force
+    Remove-Item -Path $topItems[0].FullName -Recurse -Force
+}
 
 # Locate launcher recursively
 $launcher = Get-ChildItem -Path $extractPath -Filter "CS-Toolbox-Launcher.ps1" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
