@@ -1,6 +1,6 @@
 # CS-Toolbox-Launcher-FromZip.ps1
 # Bootstrapper for ConnectSecure Technician Toolbox (prod-01-01)
-# - Downloads prod-01-01.zip
+# - Downloads prod-01-01.zip (with retry logic)
 # - Extracts to C:\CS-Toolbox-TEMP\prod-01-01
 # - Launches CS-Toolbox-Launcher.ps1 in the SAME PowerShell window (dot-sourced)
 # - Handles nested folders in the ZIP and unblocks files
@@ -48,16 +48,59 @@ if (Test-Path -LiteralPath $DestRoot) {
 }
 
 # --------------------------
-# Download ZIP
+# Helper: Download with retries (3 attempts, 2s delay)
 # --------------------------
-Write-Host 'Downloading toolbox...' -ForegroundColor Cyan
-try {
-    if (Test-Path -LiteralPath $ZipPath) {
-        Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
+function Invoke-DownloadWithRetry {
+    param(
+        [Parameter(Mandatory)][string]$Uri,
+        [Parameter(Mandatory)][string]$OutFile,
+        [int]$MaxAttempts = 3,
+        [int]$DelaySeconds = 2
+    )
+
+    # Start clean
+    if (Test-Path -LiteralPath $OutFile) {
+        Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
     }
-    Invoke-WebRequest -Uri $ZipUrl -OutFile $ZipPath -UseBasicParsing -ErrorAction Stop
-} catch {
-    Write-Host ('❌ ERROR: Download failed: {0}' -f $_.Exception.Message) -ForegroundColor Red
+
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        Write-Host ("Downloading toolbox... Attempt {0}/{1}" -f $attempt, $MaxAttempts) -ForegroundColor Cyan
+        try {
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -ErrorAction Stop
+
+            # Basic integrity check: file exists and > 0 bytes
+            if ((Test-Path -LiteralPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -gt 0)) {
+                Write-Host "✅ Download successful." -ForegroundColor Green
+                return $true
+            } else {
+                throw "Downloaded file is missing or empty."
+            }
+        } catch {
+            # Clean partial file
+            if (Test-Path -LiteralPath $OutFile) {
+                Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+            }
+
+            if ($attempt -eq $MaxAttempts) {
+                Write-Host ("❌ ERROR: Download failed on attempt {0}/{1}: {2}" -f $attempt, $MaxAttempts, $_.Exception.Message) -ForegroundColor Red
+                return $false
+            } else {
+                Write-Host ("⚠️ Attempt {0}/{1} failed: {2}" -f $attempt, $MaxAttempts, $_.Exception.Message) -ForegroundColor Yellow
+                Write-Host ("   Retrying in {0} seconds..." -f $DelaySeconds) -ForegroundColor Yellow
+                Start-Sleep -Seconds $DelaySeconds
+            }
+        }
+    }
+
+    return $false
+}
+
+# --------------------------
+# Download ZIP (with 1/3, 2/3, 3/3 status)
+# --------------------------
+$downloadOk = Invoke-DownloadWithRetry -Uri $ZipUrl -OutFile $ZipPath -MaxAttempts 3 -DelaySeconds 2
+if (-not $downloadOk) {
+    Write-Host 'Download did not succeed after 3 attempts. Please check your connection or try again later.' -ForegroundColor Red
     return
 }
 
