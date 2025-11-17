@@ -23,7 +23,7 @@ $Launcher     = Join-Path $DestRoot 'CS-Toolbox-Launcher.ps1'
 
 # If you prefer a static, pinned hash, set it here (64 hex chars, uppercase/lowercase OK)
 # Example: 'B8F0C95A1234567890ABCDEF11223344556677889900AABBCCDDEEFF00112233'
-$ExpectedHash = '8592D6595B3C9E3CC36973FE6EB39806751F4197CD2E8971AEFA0EA8823682E5'   # leave empty to use $HashUrl, or set to a specific known-good SHA-256
+$ExpectedHash = '3C66F4DDFA41C5F85F540F1945F6800298C7F681FEAD270A378E898F5CE44A06'   # leave empty to use $HashUrl, or set to a specific known-good SHA-256
 
 # --------------------------
 # Prompt user
