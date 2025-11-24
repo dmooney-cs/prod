@@ -14,8 +14,7 @@ param(
 # --------------------------
 # Config
 # --------------------------
-$ZipUrl       = 'https://betadevtools.myconnectsecure.com/agents/toolbox/toolbox.zip'            # RAW file url
-$HashUrl      = 'https://github.com/dmooney-cs/prod/raw/main/prod-01-01.zip.sha256'     # Optional: remote hash file (single line or "hash  filename")
+$ZipUrl       = 'https://github.com/dmooney-cs/prod/raw/refs/heads/main/prod-01-01.zip'            # RAW file url
 $ZipPath      = Join-Path $env:TEMP 'prod-01-01.zip'
 $ExtractPath  = 'C:\CS-Toolbox-TEMP'
 $DestRoot     = Join-Path $ExtractPath 'prod-01-01'
