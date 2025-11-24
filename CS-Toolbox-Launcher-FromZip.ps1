@@ -1,29 +1,28 @@
 # CS-Toolbox-Launcher-FromZip.ps1
 # Bootstrapper for ConnectSecure Technician Toolbox (prod-01-01) with SHA-256 verification
 # - Downloads prod-01-01.zip (with retry logic)
-# - (NEW) Verifies SHA-256 against a known value or a remote .sha256 sidecar file
+# - Verifies SHA-256 against a pinned value ($ExpectedHash)
 # - Extracts to C:\CS-Toolbox-TEMP\prod-01-01
 # - Launches CS-Toolbox-Launcher.ps1 in the SAME PowerShell window (dot-sourced)
 # - Handles nested folders in the ZIP and unblocks files
 
 param(
-    [switch]$AutoYes,          # Skip the Y/N prompt
-    [switch]$SkipHashCheck     # (Not recommended) skip SHA-256 verification
+    [switch]$AutoYes,      # Skip the Y/N prompt
+    [switch]$SkipHashCheck # (Not recommended) skip SHA-256 verification
 )
 
 # --------------------------
 # Config
 # --------------------------
-$ZipUrl       = 'https://github.com/dmooney-cs/prod/raw/refs/heads/main/prod-01-01.zip'            # RAW file url
+$ZipUrl       = 'https://github.com/dmooney-cs/prod/raw/refs/heads/main/prod-01-01.zip'  # RAW file url
 $ZipPath      = Join-Path $env:TEMP 'prod-01-01.zip'
 $ExtractPath  = 'C:\CS-Toolbox-TEMP'
 $DestRoot     = Join-Path $ExtractPath 'prod-01-01'
 $Launcher     = Join-Path $DestRoot 'CS-Toolbox-Launcher.ps1'
 
-# If you prefer a static, pinned hash, set it here (64 hex chars, uppercase/lowercase OK)
-# Example: 'B8F0C95A1234567890ABCDEF11223344556677889900AABBCCDDEEFF00112233'
-$ExpectedHash = '9F7FB2EF5644276F8E90C490797E1C18A0A6A3A31790EC4348D79FC79BC8146A'   # leave empty to use $HashUrl, or set to a specific known-good SHA-256
-$HashURL = 'none'
+# Set the pinned, known-good SHA-256 hash for the ZIP (64 hex chars)
+$ExpectedHash = '9F7FB2EF5644276F8E90C490797E1C18A0A6A3A31790EC4348D79FC79BC8146A'
+
 # --------------------------
 # Prompt user
 # --------------------------
@@ -101,40 +100,12 @@ function Invoke-DownloadWithRetry {
 
 function Get-ExpectedSha256 {
     param(
-        [string]$PinnedHash,
-        [string]$RemoteHashUrl
+        [string]$PinnedHash
     )
-    # If a pinned hash is provided, prefer it.
     if (-not [string]::IsNullOrWhiteSpace($PinnedHash)) {
         return $PinnedHash.Trim().ToUpper()
     }
-
-    if ([string]::IsNullOrWhiteSpace($RemoteHashUrl)) {
-        return $null
-    }
-
-    # Try downloading the .sha256 sidecar with simple retries (2 attempts)
-    $tmp = Join-Path $env:TEMP ('prod-01-01.zip_{0}.sha256' -f ([guid]::NewGuid()))
-    try {
-        $ok = Invoke-DownloadWithRetry -Uri $RemoteHashUrl -OutFile $tmp -MaxAttempts 2 -DelaySeconds 2
-        if (-not $ok) { return $null }
-        $raw = Get-Content -LiteralPath $tmp -ErrorAction Stop | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-        # Accept common formats: "<hash>", or "<hash>  prod-01-01.zip"
-        foreach ($line in $raw) {
-            $parts = $line.Trim()
-            if ($parts.Length -ge 64) {
-                $candidate = $parts.Substring(0,64)
-                if ($candidate -match '^[A-Fa-f0-9]{64}$') {
-                    return $candidate.ToUpper()
-                }
-            }
-        }
-        return $null
-    } catch {
-        return $null
-    } finally {
-        try { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } catch { }
-    }
+    return $null
 }
 
 function Move-Contents([string]$Source, [string]$Target) {
@@ -156,13 +127,13 @@ if (-not $downloadOk) {
 }
 
 # --------------------------
-# SHA-256 Verification (NEW)
+# SHA-256 Verification (Pinned Only)
 # --------------------------
 if (-not $SkipHashCheck) {
-    $expected = Get-ExpectedSha256 -PinnedHash $ExpectedHash -RemoteHashUrl $HashUrl
+    $expected = Get-ExpectedSha256 -PinnedHash $ExpectedHash
     if ([string]::IsNullOrWhiteSpace($expected)) {
-        Write-Host "⚠️ No expected SHA-256 available (neither pinned nor remote). Aborting to be safe." -ForegroundColor Yellow
-        Write-Host "   Tip: set `$ExpectedHash in the script, or host a sidecar file at: $HashUrl" -ForegroundColor Yellow
+        Write-Host "⚠️ No expected SHA-256 configured. Aborting to be safe." -ForegroundColor Yellow
+        Write-Host "   Tip: set `$ExpectedHash in the script to a known-good hash." -ForegroundColor Yellow
         try { Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue } catch { }
         return
     }
