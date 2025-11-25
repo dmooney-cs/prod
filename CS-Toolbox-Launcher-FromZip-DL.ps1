@@ -20,7 +20,7 @@ $DestRoot     = Join-Path $ExtractPath 'prod-01-01'
 $Launcher     = Join-Path $DestRoot 'CS-Toolbox-Launcher.ps1'
 
 # Pinned known-good SHA-256
-$ExpectedHash = '9F7FB2EF5644276F8E90C490797E1C18A0A6A3A31790EC4348D79FC79BC8146A'
+$ExpectedHash = 'DC9956F03E63D7DAE65FD3EED8AE860219DB86C429CE610209BC7E6FFA7654C1'
 
 # --------------------------
 # Prep environment
@@ -172,3 +172,4 @@ try {
     Launcher = $Launcher
     ZipPath  = $ZipPath
 }
+
