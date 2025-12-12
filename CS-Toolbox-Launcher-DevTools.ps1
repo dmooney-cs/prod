@@ -21,7 +21,7 @@ $DestRoot     = Join-Path $ExtractPath 'prod-01-01'
 $Launcher     = Join-Path $DestRoot 'CS-Toolbox-Launcher.ps1'
 
 # Pinned, known-good SHA-256 hash for the ZIP (64 hex chars)
-$ExpectedHash = 'E05F3E6B8D9725B010FE97F306621827130347D7BC57F68118DBBA2DD859653A'
+$ExpectedHash = '383A1C3E9AABD95365572C67D64CDEF51604A967561D79EBD299FB877E6352C0'
 
 # --------------------------
 # Prompt user
