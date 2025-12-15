@@ -1,3 +1,4 @@
 MESSAGE,SYMPTOM,INFO,REF,URL
-"fork/exec C:\PROGRA~2\CyberCNSAgent\nmap\nmap.exe","Probe network scans Inoperable","Extract C:\PROGRA~2\CyberCNSAgent\nmap.zip to the same folder.","176339",https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Prerequisites-for-General-Scanning-and-Patching"
-"no such host","Agent Communication Unstable/Unavailable.","Whitelist, and use TNC *host in error* -Port 443 to verify.","175195",https://cybercns.atlassian.net/wiki/x/ZwDXhw"
+fork/exec C:\PROGRA~2\CyberCNSAgent\nmap\nmap.exe,Probe network scans Inoperable,Extract C:\PROGRA~2\CyberCNSAgent\nmap.zip to the same folder.,176339",https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Prerequisites-for-General-Scanning-and-Patching
+no such host,"Agent Communication Unstable/Unavailable.,"Whitelist, and use TNC *host in error* -Port 443 to verify.,175195,https://cybercns.atlassian.net/wiki/x/ZwDXhw
+
