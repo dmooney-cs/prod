@@ -1,21 +1,22 @@
-# CS-Toolbox-Launcher-ZeroTouch-GitHubHash-SILENT.ps1
-# Fully silent bootstrapper (NO output, NO prompts, NO progress)
+# CS-Toolbox-Launcher-ZeroTouch-GitHubHash.ps1
+# - Silent by default (no output/no progress)
 # - Downloads toolbox.zip
-# - Fetches expected SHA-256 from GitHub (raw URL)
-# - Verifies ZIP hash matches expected
-# - Extracts + normalizes
-# - Unblocks
-# - Dot-sources toolbox launcher in SAME PowerShell session
-# - Any failure exits silently
+# - Pulls expected SHA-256 from GitHub RAW
+# - Compares to actual file hash
+# - Optional: show hashes and/or require confirmation
+# - Extracts + normalizes + unblocks
+# - Dot-sources launcher in SAME PowerShell session
 
 param(
-    [switch]$SkipHashCheck = $false
+    [switch]$SkipHashCheck = $false,
+    [switch]$ShowHashes = $false,
+    [switch]$ConfirmHashes = $false
 )
 
 #requires -version 5.1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'
+$ProgressPreference = 'SilentlyContinue'  # no download progress
 
 # --------------------------
 # Config
@@ -29,19 +30,28 @@ $Launcher     = Join-Path $DestRoot 'CS-Toolbox-Launcher.ps1'
 # GitHub RAW URL to expected SHA-256 (plain text)
 # Example:
 # https://raw.githubusercontent.com/YourOrg/CS-Toolbox/main/hash/prod-01-01.sha256
-$HashUrl      = 'https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/prod-01-01.sha256'
+$HashUrl      = 'https://raw.githubusercontent.com/YourOrg/CS-Toolbox/main/hash/prod-01-01.sha256'
 
 # --------------------------
-# Helpers (silent)
+# Output control
 # --------------------------
-function Invoke-DownloadSilent {
+$script:AllowOutput = [bool]($ShowHashes -or $ConfirmHashes)
+function Out-Maybe {
+    param([string]$Text)
+    if ($script:AllowOutput) { Write-Host $Text }
+}
+
+# --------------------------
+# Helpers (quiet networking)
+# --------------------------
+function Invoke-DownloadQuiet {
     param(
         [Parameter(Mandatory)][string]$Uri,
         [Parameter(Mandatory)][string]$OutFile,
         [int]$Attempts = 3
     )
 
-    Remove-Item $OutFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
 
     for ($i = 1; $i -le $Attempts; $i++) {
         try {
@@ -49,18 +59,19 @@ function Invoke-DownloadSilent {
                 'Cache-Control' = 'no-cache'
                 'Pragma'        = 'no-cache'
             }
+
             if ((Test-Path -LiteralPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -gt 0)) {
                 return $true
             }
         } catch {
-            Remove-Item $OutFile -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 1
         }
     }
     return $false
 }
 
-function Get-RemoteSha256Silent {
+function Get-RemoteSha256Quiet {
     param(
         [Parameter(Mandatory)][string]$Uri,
         [int]$Attempts = 3
@@ -68,7 +79,6 @@ function Get-RemoteSha256Silent {
 
     for ($i = 1; $i -le $Attempts; $i++) {
         try {
-            # Use Invoke-WebRequest for 5.1 consistency, keep it quiet
             $r = Invoke-WebRequest -Uri $Uri -UseBasicParsing -ErrorAction Stop -Headers @{
                 'Cache-Control' = 'no-cache'
                 'Pragma'        = 'no-cache'
@@ -77,15 +87,14 @@ function Get-RemoteSha256Silent {
             $txt = ($r.Content | Out-String)
             if ([string]::IsNullOrWhiteSpace($txt)) { throw "empty" }
 
-            # take first non-empty line
+            # First non-empty line, accept either:
+            # HASH
+            # HASH  filename
             $line = ($txt -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1).Trim()
-            if ([string]::IsNullOrWhiteSpace($line)) { throw "blank" }
-
-            # accept "HASH" or "HASH  filename"
             $hash = ($line -split '\s+')[0].Trim().ToUpper()
 
             if ($hash -match '^[0-9A-F]{64}$') { return $hash }
-            throw "invalid"
+            throw "invalid sha256 format"
         } catch {
             Start-Sleep -Seconds 1
         }
@@ -106,7 +115,7 @@ function Move-ContentsSilent {
 }
 
 # --------------------------
-# Execution (ALL SILENT)
+# Execution (silent unless switches enable output)
 # --------------------------
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
 
@@ -114,11 +123,13 @@ try { New-Item -Path $ExtractPath -ItemType Directory -Force | Out-Null } catch 
 try { Remove-Item -LiteralPath $DestRoot -Recurse -Force -ErrorAction SilentlyContinue } catch { }
 
 # Download ZIP
-if (-not (Invoke-DownloadSilent -Uri $ZipUrl -OutFile $ZipPath -Attempts 3)) { return }
+if (-not (Invoke-DownloadQuiet -Uri $ZipUrl -OutFile $ZipPath -Attempts 3)) { return }
 
-# Hash verification from GitHub
+$expected = $null
+$actual   = $null
+
 if (-not $SkipHashCheck) {
-    $expected = Get-RemoteSha256Silent -Uri $HashUrl -Attempts 3
+    $expected = Get-RemoteSha256Quiet -Uri $HashUrl -Attempts 3
     if ([string]::IsNullOrWhiteSpace($expected)) {
         Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
         return
@@ -126,13 +137,39 @@ if (-not $SkipHashCheck) {
 
     try {
         $actual = (Get-FileHash -Algorithm SHA256 -Path $ZipPath).Hash.ToUpper()
-        if ($actual -ne $expected) {
-            Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
-            return
-        }
     } catch {
         Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
         return
+    }
+
+    if ($ShowHashes -or $ConfirmHashes) {
+        Out-Maybe ""
+        Out-Maybe "Expected (GitHub): $expected"
+        Out-Maybe "Actual   (ZIP)   : $actual"
+        Out-Maybe ""
+    }
+
+    if ($actual -ne $expected) {
+        # If you're showing hashes, you’ll already see the mismatch; otherwise remain silent.
+        Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
+        return
+    }
+
+    if ($ConfirmHashes) {
+        $resp = Read-Host "Hashes match. Proceed with extract + launch? (Y/N)"
+        if ($resp -notin @('Y','y')) {
+            return
+        }
+    }
+} else {
+    if ($ShowHashes -or $ConfirmHashes) {
+        Out-Maybe ""
+        Out-Maybe "Hash check skipped (-SkipHashCheck)."
+        Out-Maybe ""
+    }
+    if ($ConfirmHashes) {
+        $resp = Read-Host "Proceed without hash verification? (Y/N)"
+        if ($resp -notin @('Y','y')) { return }
     }
 }
 
@@ -142,7 +179,7 @@ try { Expand-Archive -Path $ZipPath -DestinationPath $ExtractPath -Force } catch
 # Ensure destination
 try { New-Item -Path $DestRoot -ItemType Directory -Force | Out-Null } catch { return }
 
-# Normalize ZIP structure (handle nested folder in ZIP)
+# Normalize ZIP structure
 if (-not (Test-Path -LiteralPath (Join-Path $DestRoot 'CS-Toolbox-Launcher.ps1'))) {
     $dirs  = Get-ChildItem -LiteralPath $ExtractPath -Directory -Force | Where-Object { $_.FullName -ne $DestRoot }
     $files = Get-ChildItem -LiteralPath $ExtractPath -File -Force | Where-Object { $_.FullName -ne $ZipPath }
