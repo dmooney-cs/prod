@@ -21,7 +21,7 @@ $ProgressPreference = 'SilentlyContinue'  # no download progress
 # --------------------------
 # Config
 # --------------------------
-$ZipUrl       = 'https://betadevtools.myconnectsecure.com/agents/toolbox/toolbox.zip'
+$ZipUrl       = 'https://github.com/dmooney-cs/prod/raw/refs/heads/main/prod-01-01.zip'
 $ZipPath      = Join-Path $env:TEMP 'prod-01-01.zip'
 $ExtractPath  = 'C:\CS-Toolbox-TEMP'
 $DestRoot     = Join-Path $ExtractPath 'prod-01-01'
