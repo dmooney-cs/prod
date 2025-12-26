@@ -1,21 +1,21 @@
 <# =================================================================================================
- CS-Toolbox-DesktopIcon.ps1  (v1.9 - overwrite always + include .ico + show planned copies)
+ CS-Toolbox-DesktopIcon.ps1  (v2.0 - overwrite always + include .ico + default minimal UI + ShowDetails)
 
- Changes requested:
-  - NEVER create "_(2)" duplicate files. ALWAYS overwrite using -Force.
-  - Copy any .ico files to C:\Temp.
-  - Show .ico files (and planned actions) on screen before copying, then prompt to proceed.
+ Default behavior:
+  - Runs without showing the full planned-actions menu
+  - After successful extraction + copy, displays:
+      "Please find the ConnectSecure Toolbox Launcher icon on your desktop, press any key to exit"
+    then waits for any key.
 
- Behavior:
-  - Downloads ZIP (3 attempts)
-  - Extracts to isolated SYSTEM temp folder
-  - Normalizes folder structure (flattens ONE top folder if present)
-  - Unblocks extracted files
-  - Copies:
-      • ALL .ps1 -> C:\Temp (overwrite)
-      • ALL .ico -> C:\Temp (overwrite)
-      • ALL .lnk -> Desktop and/or Taskbar pinned folder (overwrite)
-  - -ExportOnly exports JSON to C:\Temp\collected-info and exits (no prompts)
+ -ShowDetails:
+  - Shows the detailed planned actions + lists .ico files to be copied
+  - Prompts to proceed (Y/N)
+
+ Other:
+  - NEVER create "_(2)" copies. ALWAYS overwrite using -Force.
+  - Copies ALL .ps1 and ALL .ico to C:\Temp (overwrite).
+  - Copies ALL .lnk to Desktop and/or Taskbar pinned folder (overwrite).
+  - -ExportOnly exports JSON to C:\Temp\collected-info and exits (no prompts).
 
 ================================================================================================= #>
 
@@ -28,6 +28,8 @@ param(
 
     [switch]$Desktop,
     [switch]$Taskbar,
+
+    [switch]$ShowDetails,
     [switch]$Silent,
 
     [switch]$ExportOnly
@@ -62,7 +64,7 @@ function Write-Log {
     $ts = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
     $line = "[$ts][$Level] $Message"
     Add-Content -Path $script:LogFile -Value $line -Encoding UTF8
-    if (-not $Silent) {
+    if (-not $Silent -and $ShowDetails) {
         switch ($Level) {
             'ERROR' { Write-Host $line -ForegroundColor Red }
             'WARN'  { Write-Host $line -ForegroundColor Yellow }
@@ -126,7 +128,6 @@ function Invoke-DownloadWithRetry {
                 Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
             }
             if ($attempt -eq $MaxAttempts) { return $false }
-            Write-Log ("Retrying in {0} seconds..." -f $DelaySeconds) "INFO"
             Start-Sleep -Seconds $DelaySeconds
         }
     }
@@ -138,7 +139,7 @@ function Move-Contents {
     if (-not (Test-Path -LiteralPath $Source)) { return }
     Get-ChildItem -LiteralPath $Source -Force | ForEach-Object {
         try { Move-Item -LiteralPath $_.FullName -Destination $Target -Force } catch {
-            Write-Log ("WARN: Failed to move {0} -> {1}: {2}" -f $_.FullName, $Target, $_.Exception.Message) "WARN"
+            Write-Log ("Failed to move {0} -> {1}: {2}" -f $_.FullName, $Target, $_.Exception.Message) "WARN"
         }
     }
 }
@@ -198,6 +199,14 @@ function Copy-AllFilesOverwrite {
     return $copied
 }
 
+function Wait-AnyKey {
+    try {
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+    } catch {
+        Start-Sleep -Seconds 2
+    }
+}
+
 # ------------------------- Summary -------------------------
 $summary = [ordered]@{
     startedAt           = (Get-Date).ToString('o')
@@ -220,7 +229,7 @@ $summary = [ordered]@{
     result              = "UNKNOWN"
 }
 
-Write-Log "Starting. ZipUrl='$ZipUrl' Desktop=$Desktop Taskbar=$Taskbar Silent=$Silent ExportOnly=$ExportOnly" "INFO"
+Write-Log "Starting. ZipUrl='$ZipUrl' Desktop=$Desktop Taskbar=$Taskbar ShowDetails=$ShowDetails Silent=$Silent ExportOnly=$ExportOnly" "INFO"
 
 try {
     try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
@@ -281,36 +290,23 @@ try {
         $summary.result = "EXPORTONLY"
         $summary.finishedAt = (Get-Date).ToString('o')
         ($summary | ConvertTo-Json -Depth 14) | Set-Content -Path $ExportJson -Encoding UTF8
-        if (-not $Silent) { Write-Host "Exported: $ExportJson" }
         exit 0
     }
 
-    if (-not $Silent) {
+    # Show details only when requested
+    if (-not $Silent -and $ShowDetails) {
         Write-Host ""
         Write-Host "Planned actions (OVERWRITE existing files):" -ForegroundColor Cyan
-
-        if ($ps1Files.Count -gt 0) {
-            Write-Host (" - Copy {0} .ps1 -> {1}" -f $ps1Files.Count, $DeployRoot)
-        } else {
-            Write-Host " - Copy 0 .ps1 -> C:\Temp"
-        }
+        Write-Host (" - Copy {0} .ps1 -> {1}" -f $ps1Files.Count, $DeployRoot)
+        Write-Host (" - Copy {0} .ico -> {1}" -f $icoFiles.Count, $DeployRoot)
 
         if ($icoFiles.Count -gt 0) {
-            Write-Host (" - Copy {0} .ico -> {1}" -f $icoFiles.Count, $DeployRoot)
             Write-Host "   ICO files to be copied:" -ForegroundColor Cyan
-            foreach ($ico in $icoFiles) {
-                Write-Host ("    • {0}" -f $ico.FullName)
-            }
-        } else {
-            Write-Host " - Copy 0 .ico -> C:\Temp"
+            foreach ($ico in $icoFiles) { Write-Host ("    • {0}" -f $ico.FullName) }
         }
 
-        if ($Desktop) {
-            Write-Host (" - Copy {0} .lnk -> Desktop: {1}" -f $lnkFiles.Count, $desktopPath)
-        }
-        if ($Taskbar) {
-            Write-Host (" - Copy {0} .lnk -> Taskbar pinned folder: {1}" -f $lnkFiles.Count, $taskbarDir)
-        }
+        if ($Desktop) { Write-Host (" - Copy {0} .lnk -> Desktop: {1}" -f $lnkFiles.Count, $desktopPath) }
+        if ($Taskbar) { Write-Host (" - Copy {0} .lnk -> Taskbar pinned folder: {1}" -f $lnkFiles.Count, $taskbarDir) }
 
         Write-Host ""
         $ans = Read-Host "Proceed? (Y/N)"
@@ -330,6 +326,12 @@ try {
     }
 
     $summary.result = "SUCCESS"
+
+    if (-not $Silent) {
+        Write-Host ""
+        Write-Host "Please find the ConnectSecure Toolbox Launcher icon on your desktop, press any key to exit"
+        Wait-AnyKey
+    }
 }
 catch {
     $summary.result = "FAILED"
