@@ -1,15 +1,22 @@
 <# =================================================================================================
- CS-Toolbox-DesktopIcon.ps1  (v1.8 - strict-mode safe normalize)
+ CS-Toolbox-DesktopIcon.ps1  (v1.9 - overwrite always + include .ico + show planned copies)
 
- Fix:
-  - Normalize-ExtractRoot now uses @() around Get-ChildItem results so .Count always exists.
+ Changes requested:
+  - NEVER create "_(2)" duplicate files. ALWAYS overwrite using -Force.
+  - Copy any .ico files to C:\Temp.
+  - Show .ico files (and planned actions) on screen before copying, then prompt to proceed.
 
- Uses proven bootstrapper strategy:
-  - Download Toolbox-Launchers.zip (3 attempts)
-  - Extract to SYSTEM temp
-  - Normalize folder structure (flatten single top folder)
-  - Unblock extracted files
-  - Copy ALL .lnk to Desktop/Taskbar, ALL .ps1 to C:\Temp
+ Behavior:
+  - Downloads ZIP (3 attempts)
+  - Extracts to isolated SYSTEM temp folder
+  - Normalizes folder structure (flattens ONE top folder if present)
+  - Unblocks extracted files
+  - Copies:
+      • ALL .ps1 -> C:\Temp (overwrite)
+      • ALL .ico -> C:\Temp (overwrite)
+      • ALL .lnk -> Desktop and/or Taskbar pinned folder (overwrite)
+  - -ExportOnly exports JSON to C:\Temp\collected-info and exits (no prompts)
+
 ================================================================================================= #>
 
 #requires -version 5.1
@@ -28,18 +35,21 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 
 if (-not $Desktop -and -not $Taskbar) { $Desktop = $true }
 
 # ------------------------- Paths -------------------------
 $DeployRoot       = "C:\Temp"
 $CollectedInfoDir = Join-Path $DeployRoot "collected-info"
-$LogFile          = Join-Path $DeployRoot "CS-Toolbox-3xDesktopIcon.log"
-$ExportJson       = Join-Path $CollectedInfoDir "CS-Toolbox-3xDesktopIcon.json"
+$LogFile          = Join-Path $DeployRoot "CS-Toolbox-DesktopIcon.log"
+$ExportJson       = Join-Path $CollectedInfoDir "CS-Toolbox-DesktopIcon.json"
 
 function Ensure-Dir {
     param([Parameter(Mandatory)][string]$Path)
-    if (-not (Test-Path -LiteralPath $Path)) { New-Item -ItemType Directory -Path $Path -Force | Out-Null }
+    if (-not (Test-Path -LiteralPath $Path)) {
+        New-Item -ItemType Directory -Path $Path -Force | Out-Null
+    }
 }
 Ensure-Dir $DeployRoot
 Ensure-Dir $CollectedInfoDir
@@ -139,7 +149,6 @@ function Normalize-ExtractRoot {
         [Parameter(Mandatory)][string]$ZipPath
     )
 
-    # STRICT-MODE SAFE: always arrays
     $topDirs  = @(
         Get-ChildItem -LiteralPath $ExtractPath -Directory -Force -ErrorAction SilentlyContinue
     )
@@ -172,7 +181,7 @@ function Get-AllFilesByExtension {
         Where-Object { $_.Extension -ieq $Extension }
 }
 
-function Copy-AllFiles {
+function Copy-AllFilesOverwrite {
     param(
         [Parameter(Mandatory)][System.IO.FileInfo[]]$Files,
         [Parameter(Mandatory)][string]$Destination
@@ -181,19 +190,10 @@ function Copy-AllFiles {
 
     $copied = @()
     foreach ($f in $Files) {
-        $base = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
-        $ext  = $f.Extension
-        $dest = Join-Path $Destination ($base + $ext)
-
-        $i = 2
-        while (Test-Path -LiteralPath $dest) {
-            $dest = Join-Path $Destination ("{0}_({1}){2}" -f $base, $i, $ext)
-            $i++
-        }
-
+        $dest = Join-Path $Destination $f.Name
         Copy-Item -LiteralPath $f.FullName -Destination $dest -Force
         $copied += $dest
-        Write-Log "Copied: $($f.FullName) -> $dest" "OK"
+        Write-Log "Copied (overwrite): $($f.FullName) -> $dest" "OK"
     }
     return $copied
 }
@@ -212,9 +212,11 @@ $summary = [ordered]@{
     taskbarPinnedFolder = $null
     lnkCountFound       = 0
     ps1CountFound       = 0
+    icoCountFound       = 0
     copiedLnkToDesktop  = @()
     copiedLnkToTaskbar  = @()
     copiedPs1ToCTemp    = @()
+    copiedIcoToCTemp    = @()
     result              = "UNKNOWN"
 }
 
@@ -265,23 +267,15 @@ try {
 
     $lnkFiles = @(Get-AllFilesByExtension -Root $extract -Extension ".lnk")
     $ps1Files = @(Get-AllFilesByExtension -Root $extract -Extension ".ps1")
+    $icoFiles = @(Get-AllFilesByExtension -Root $extract -Extension ".ico")
 
     $summary.lnkCountFound = $lnkFiles.Count
     $summary.ps1CountFound = $ps1Files.Count
+    $summary.icoCountFound = $icoFiles.Count
 
     Write-Log "Found .lnk files: $($lnkFiles.Count)" "OK"
     Write-Log "Found .ps1 files: $($ps1Files.Count)" "OK"
-
-    if (-not $Silent -and -not $ExportOnly) {
-        Write-Host ""
-        Write-Host "Planned actions:" -ForegroundColor Cyan
-        if ($Desktop) { Write-Host " - Copy ALL .lnk to Desktop: $desktopPath" }
-        if ($Taskbar) { Write-Host " - Copy ALL .lnk to Taskbar pinned folder: $taskbarDir" }
-        Write-Host " - Copy ALL .ps1 to C:\Temp"
-        Write-Host ""
-        $ans = Read-Host "Proceed? (Y/N)"
-        if ($ans -notin @('Y','y')) { throw "User cancelled." }
-    }
+    Write-Log "Found .ico files: $($icoFiles.Count)" "OK"
 
     if ($ExportOnly) {
         $summary.result = "EXPORTONLY"
@@ -291,9 +285,49 @@ try {
         exit 0
     }
 
-    if ($ps1Files.Count -gt 0) { $summary.copiedPs1ToCTemp = Copy-AllFiles -Files $ps1Files -Destination $DeployRoot }
-    if ($Desktop -and $lnkFiles.Count -gt 0) { $summary.copiedLnkToDesktop = Copy-AllFiles -Files $lnkFiles -Destination $desktopPath }
-    if ($Taskbar -and $lnkFiles.Count -gt 0) { $summary.copiedLnkToTaskbar = Copy-AllFiles -Files $lnkFiles -Destination $taskbarDir }
+    if (-not $Silent) {
+        Write-Host ""
+        Write-Host "Planned actions (OVERWRITE existing files):" -ForegroundColor Cyan
+
+        if ($ps1Files.Count -gt 0) {
+            Write-Host (" - Copy {0} .ps1 -> {1}" -f $ps1Files.Count, $DeployRoot)
+        } else {
+            Write-Host " - Copy 0 .ps1 -> C:\Temp"
+        }
+
+        if ($icoFiles.Count -gt 0) {
+            Write-Host (" - Copy {0} .ico -> {1}" -f $icoFiles.Count, $DeployRoot)
+            Write-Host "   ICO files to be copied:" -ForegroundColor Cyan
+            foreach ($ico in $icoFiles) {
+                Write-Host ("    • {0}" -f $ico.FullName)
+            }
+        } else {
+            Write-Host " - Copy 0 .ico -> C:\Temp"
+        }
+
+        if ($Desktop) {
+            Write-Host (" - Copy {0} .lnk -> Desktop: {1}" -f $lnkFiles.Count, $desktopPath)
+        }
+        if ($Taskbar) {
+            Write-Host (" - Copy {0} .lnk -> Taskbar pinned folder: {1}" -f $lnkFiles.Count, $taskbarDir)
+        }
+
+        Write-Host ""
+        $ans = Read-Host "Proceed? (Y/N)"
+        if ($ans -notin @('Y','y')) { throw "User cancelled." }
+    }
+
+    # Copy (overwrite)
+    if ($ps1Files.Count -gt 0) { $summary.copiedPs1ToCTemp = Copy-AllFilesOverwrite -Files $ps1Files -Destination $DeployRoot }
+    if ($icoFiles.Count -gt 0) { $summary.copiedIcoToCTemp = Copy-AllFilesOverwrite -Files $icoFiles -Destination $DeployRoot }
+
+    if ($Desktop -and $lnkFiles.Count -gt 0) {
+        $summary.copiedLnkToDesktop = Copy-AllFilesOverwrite -Files $lnkFiles -Destination $desktopPath
+    }
+    if ($Taskbar -and $lnkFiles.Count -gt 0) {
+        Ensure-Dir $taskbarDir
+        $summary.copiedLnkToTaskbar = Copy-AllFilesOverwrite -Files $lnkFiles -Destination $taskbarDir
+    }
 
     $summary.result = "SUCCESS"
 }
