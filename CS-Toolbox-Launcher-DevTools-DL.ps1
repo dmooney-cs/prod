@@ -1,218 +1,211 @@
-# CS-Toolbox-DownloadOnly.ps1
-# Download-only bootstrapper for ConnectSecure Technician Toolbox (prod-01-01)
-# - Downloads prod-01-01.zip (with retry logic)
-# - Verifies SHA-256 against a pinned value ($ExpectedHash)  [REQUIRED]
-# - Extracts to C:\CS-Toolbox-TEMP\prod-01-01
-# - DOES NOT launch the CS-Toolbox-Launcher.ps1
-# - Automatically sets the working directory to the toolbox root
-# - Waits for required files to exist before returning (prevents cookbook races)
+<# =================================================================================================
+ CS-Toolbox-Download-Only-ZeroTouch.ps1  (v1.0 - staging extract, verify, exit)
 
-Set-StrictMode -Version 2.0
+ Purpose:
+  - Downloads toolbox ZIP
+  - Verifies SHA-256 (unless skipped)
+  - Extracts into C:\CS-Toolbox-TEMP\prod-01-01
+  - Normalizes ONE wrapper folder if present
+  - Overwrites existing files (never creates "(2)")
+  - DOES NOT launch anything
+  - Exits cleanly
+
+ Switches:
+  -SkipHashCheck
+  -ShowHashes
+  -ConfirmHashes
+  -ExportOnly
+================================================================================================= #>
+
+#requires -version 5.1
+[CmdletBinding()]
+param(
+    [switch]$SkipHashCheck = $false,
+    [switch]$ShowHashes   = $false,
+    [switch]$ConfirmHashes = $false,
+    [switch]$ExportOnly   = $false
+)
+
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 
 # --------------------------
 # Config
 # --------------------------
-$ZipUrl       = 'https://github.com/dmooney-cs/prod/raw/refs/heads/main/prod-01-01.zip'
-$ZipPath      = Join-Path $env:TEMP 'prod-01-01.zip'
-$ExtractPath  = 'C:\CS-Toolbox-TEMP'
-$DestRoot     = Join-Path $ExtractPath 'prod-01-01'
-$Launcher     = Join-Path $DestRoot 'CS-Toolbox-Launcher.ps1'
+$ZipUrl      = 'https://betadevtools.myconnectsecure.com/agents/toolbox/toolbox.zip'
+$ZipPath     = Join-Path $env:TEMP 'prod-01-01.zip'
+$ExtractPath = 'C:\CS-Toolbox-TEMP'
+$DestRoot    = Join-Path $ExtractPath 'prod-01-01'
 
-# Pinned known-good SHA-256 (REQUIRED)
-$ExpectedHash = 'AF1812EB00FCA40C4FCB564107F21D3E56B044C9C1A34F97FF0ECE37350AC197'
+# GitHub RAW hash file
+$HashUrl     = 'https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/main/devtools.sha256'
 
 # --------------------------
-# Wait Helpers
+# Output control
 # --------------------------
-function Wait-Path {
-    param(
-        [Parameter(Mandatory)][string]$Path,
-        [int]$TimeoutSec = 180,
-        [int]$PollMs = 250
-    )
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    while (-not (Test-Path -LiteralPath $Path)) {
-        if ($sw.Elapsed.TotalSeconds -ge $TimeoutSec) {
-            throw "Timed out waiting for: $Path"
-        }
-        Start-Sleep -Milliseconds $PollMs
-    }
+$script:AllowOutput = [bool]($ShowHashes -or $ConfirmHashes)
+
+function Say($m) {
+    if ($script:AllowOutput) { Write-Host $m }
 }
 
-function Wait-Files {
-    param(
-        [Parameter(Mandatory)][string]$Root,
-        [Parameter(Mandatory)][string[]]$Files,
-        [int]$TimeoutSec = 180
-    )
-    foreach ($f in $Files) {
-        Wait-Path -Path (Join-Path $Root $f) -TimeoutSec $TimeoutSec
+function Fail($stage, $reason) {
+    if ($script:AllowOutput) {
+        Write-Host ""
+        Write-Host "FAILED at: $stage"
+        Write-Host "Reason : $reason"
+        Write-Host ""
     }
-}
-
-# --------------------------
-# Prep environment
-# --------------------------
-try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
-
-# Ensure base folder exists
-if (-not (Test-Path -LiteralPath $ExtractPath)) {
-    try {
-        New-Item -Path $ExtractPath -ItemType Directory -Force | Out-Null
-    } catch {
-        Write-Host "❌ ERROR: Failed to create $ExtractPath : $($_.Exception.Message)" -ForegroundColor Red
-        exit 1
-    }
-}
-
-# Clean existing destination
-if (Test-Path -LiteralPath $DestRoot) {
-    try { Remove-Item -LiteralPath $DestRoot -Recurse -Force -ErrorAction Stop }
-    catch {
-        Write-Host "⚠️ WARN: Could not remove existing folder $DestRoot : $($_.Exception.Message)" -ForegroundColor Yellow
-    }
+    return $false
 }
 
 # --------------------------
 # Helpers
 # --------------------------
-function Invoke-DownloadWithRetry {
+function Invoke-DownloadQuiet {
     param(
-        [Parameter(Mandatory)][string]$Uri,
-        [Parameter(Mandatory)][string]$OutFile,
-        [int]$MaxAttempts = 3,
-        [int]$DelaySeconds = 2
+        [string]$Uri,
+        [string]$OutFile,
+        [int]$Attempts = 3
     )
 
-    if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
+    try { Remove-Item $OutFile -Force -ErrorAction SilentlyContinue } catch {}
 
-    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-        Write-Host "Downloading: $Uri (Attempt $attempt/$MaxAttempts)" -ForegroundColor Cyan
+    for ($i = 1; $i -le $Attempts; $i++) {
         try {
-            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -ErrorAction Stop
-            if ((Test-Path -LiteralPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -gt 0)) {
-                Write-Host "✅ Download successful." -ForegroundColor Green
+            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -ErrorAction Stop -Headers @{
+                'Cache-Control' = 'no-cache'
+                'Pragma'        = 'no-cache'
+            }
+            if ((Test-Path $OutFile) -and ((Get-Item $OutFile).Length -gt 0)) {
                 return $true
             }
-            throw "Downloaded file is empty."
         } catch {
-            if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue }
-            if ($attempt -eq $MaxAttempts) {
-                Write-Host "❌ ERROR: Download failed: $($_.Exception.Message)" -ForegroundColor Red
-                return $false
-            }
-            Write-Host "⚠️ Attempt $attempt failed: $($_.Exception.Message)" -ForegroundColor Yellow
-            Write-Host "   Retrying in $DelaySeconds seconds..."
-            Start-Sleep -Seconds $DelaySeconds
+            Start-Sleep 1
         }
     }
-
     return $false
 }
 
-function Move-Contents([string]$Source, [string]$Target) {
-    if (-not (Test-Path -LiteralPath $Source)) { return }
-    Get-ChildItem -LiteralPath $Source -Force | ForEach-Object {
-        try { Move-Item -LiteralPath $_.FullName -Destination $Target -Force }
-        catch {
-            Write-Host "⚠️ WARN: Failed to move $($_.FullName) → $Target : $($_.Exception.Message)" -ForegroundColor Yellow
+function Get-RemoteSha256Quiet {
+    param(
+        [string]$Uri,
+        [int]$Attempts = 3
+    )
+
+    for ($i = 1; $i -le $Attempts; $i++) {
+        try {
+            $r = Invoke-WebRequest -Uri $Uri -UseBasicParsing -ErrorAction Stop
+            $line = ($r.Content -split "`r?`n" | Where-Object { $_.Trim() })[0]
+            $hash = ($line -split '\s+')[0].Trim().ToUpperInvariant()
+            if ($hash -match '^[0-9A-F]{64}$') { return $hash }
+        } catch {
+            Start-Sleep 1
+        }
+    }
+    return $null
+}
+
+function New-IsolatedStageFolder {
+    param([string]$Parent)
+    $path = Join-Path $Parent ("_stage_" + [guid]::NewGuid().ToString("N"))
+    New-Item -Path $path -ItemType Directory -Force | Out-Null
+    return $path
+}
+
+function Resolve-ExtractedRoot {
+    param([string]$StageRoot)
+
+    $dirs  = @(Get-ChildItem $StageRoot -Directory -Force)
+    $files = @(Get-ChildItem $StageRoot -File -Force)
+
+    if ($dirs.Count -eq 1 -and $files.Count -eq 0) {
+        return $dirs[0].FullName
+    }
+    return $StageRoot
+}
+
+function Move-TreeIntoDest {
+    param(
+        [string]$ContentRoot,
+        [string]$DestRoot
+    )
+
+    foreach ($item in Get-ChildItem $ContentRoot -Force) {
+        try {
+            Move-Item $item.FullName $DestRoot -Force
+        } catch {
+            Copy-Item $item.FullName $DestRoot -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item $item.FullName -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 }
 
 # --------------------------
-# Download ZIP
+# Main
 # --------------------------
-$downloadOk = Invoke-DownloadWithRetry -Uri $ZipUrl -OutFile $ZipPath
-if (-not $downloadOk) { exit 1 }
+$stage = "init"
 
-# --------------------------
-# SHA-256 Verification (REQUIRED)
-# --------------------------
 try {
-    $actual = (Get-FileHash -Algorithm SHA256 -Path $ZipPath).Hash.ToUpper()
-    if ($actual -ne $ExpectedHash) {
-        Write-Host "❌ Hash mismatch! ZIP discarded." -ForegroundColor Red
-        Write-Host "   Expected: $ExpectedHash" -ForegroundColor Red
-        Write-Host "   Actual  : $actual" -ForegroundColor Red
-        Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
-        exit 1
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
+
+    $stage = "prepare folders"
+    New-Item $ExtractPath -ItemType Directory -Force | Out-Null
+    Remove-Item $DestRoot -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item $DestRoot -ItemType Directory -Force | Out-Null
+
+    $stage = "download zip"
+    Say "Downloading ZIP..."
+    if (-not (Invoke-DownloadQuiet $ZipUrl $ZipPath)) {
+        return (Fail $stage "Download failed")
     }
-    Write-Host "✅ File hash verified (SHA-256)." -ForegroundColor Green
-} catch {
-    Write-Host "❌ ERROR computing SHA-256: $($_.Exception.Message)" -ForegroundColor Red
-    exit 1
-}
 
-# --------------------------
-# Extract ZIP
-# --------------------------
-Write-Host "Extracting toolbox..." -ForegroundColor Cyan
-try {
-    Expand-Archive -Path $ZipPath -DestinationPath $ExtractPath -Force
-} catch {
-    Write-Host "❌ ERROR: Extract failed: $($_.Exception.Message)" -ForegroundColor Red
-    exit 1
-}
+    if (-not $SkipHashCheck) {
+        $stage = "hash verification"
+        $expected = Get-RemoteSha256Quiet $HashUrl
+        if (-not $expected) { return (Fail $stage "Failed to retrieve hash") }
 
-# Normalize structure
-if (-not (Test-Path -LiteralPath $DestRoot)) { New-Item -LiteralPath $DestRoot -ItemType Directory -Force | Out-Null }
+        $actual = (Get-FileHash $ZipPath -Algorithm SHA256).Hash.ToUpperInvariant()
 
-$alreadyGood = Test-Path -LiteralPath (Join-Path $DestRoot 'CS-Toolbox-Launcher.ps1')
-if (-not $alreadyGood) {
-    $topDirs  = Get-ChildItem -LiteralPath $ExtractPath -Directory -Force | Where-Object { $_.FullName -ne $DestRoot }
-    $topFiles = Get-ChildItem -LiteralPath $ExtractPath -File -Force | Where-Object { $_.FullName -ne $ZipPath }
+        if ($ShowHashes -or $ConfirmHashes) {
+            Write-Host ""
+            Write-Host "Expected: $expected"
+            Write-Host "Actual  : $actual"
+            Write-Host ""
+        }
 
-    if ($topDirs.Count -eq 1 -and $topFiles.Count -eq 0) {
-        Move-Contents -Source $topDirs[0].FullName -Target $DestRoot
-        Remove-Item -LiteralPath $topDirs[0].FullName -Recurse -Force -ErrorAction SilentlyContinue
-    } else {
-        foreach ($d in $topDirs)  { Move-Contents -Source $d.FullName -Target $DestRoot }
-        foreach ($f in $topFiles) { Move-Item -LiteralPath $f.FullName -Destination $DestRoot -Force }
-        foreach ($d in $topDirs)  { Remove-Item -LiteralPath $d.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+        if ($expected -ne $actual) {
+            return (Fail $stage "Hash mismatch")
+        }
+
+        if ($ConfirmHashes) {
+            if ((Read-Host "Hashes match. Proceed with extract? (Y/N)") -notin @('Y','y')) {
+                return $true
+            }
+        }
     }
-}
 
-# --------------------------
-# Wait for required files (prevents downstream races)
-# --------------------------
-try {
-    Wait-Path  -Path $DestRoot -TimeoutSec 300
-    Wait-Files -Root $DestRoot -Files @(
-        'CS-Toolbox-Launcher.ps1'
-        # Add others here if cookbooks rely on them immediately, e.g.:
-        # 'Registry-Search.ps1'
-    ) -TimeoutSec 300
+    $stage = "extract (staging)"
+    $stageRoot = New-IsolatedStageFolder $ExtractPath
+    Expand-Archive $ZipPath $stageRoot -Force
+
+    $stage = "resolve root"
+    $contentRoot = Resolve-ExtractedRoot $stageRoot
+
+    $stage = "move content"
+    Move-TreeIntoDest $contentRoot $DestRoot
+
+    $stage = "cleanup"
+    Remove-Item $stageRoot -Recurse -Force -ErrorAction SilentlyContinue
+
+    $stage = "unblock"
+    Get-ChildItem $DestRoot -Recurse -File -Force |
+        ForEach-Object { try { Unblock-File $_.FullName } catch {} }
+
+    # DONE — NO LAUNCH
+    return $true
+
 } catch {
-    Write-Host "❌ ERROR: $($_.Exception.Message)" -ForegroundColor Red
-    exit 1
+    return (Fail $stage $_.Exception.Message)
 }
-
-# Unblock all extracted files
-Get-ChildItem -LiteralPath $DestRoot -Recurse -File -Force | ForEach-Object {
-    try { Unblock-File -LiteralPath $_.FullName -ErrorAction SilentlyContinue } catch {}
-}
-
-# --------------------------
-# Final Status + Auto-CD
-# --------------------------
-Write-Host "✅ Download & extraction complete (download-only mode)." -ForegroundColor Green
-Write-Host "Toolbox root : $DestRoot"  -ForegroundColor Cyan
-Write-Host "Launcher path: $Launcher" -ForegroundColor Cyan
-
-try {
-    Set-Location -LiteralPath $DestRoot
-    Write-Host "📁 Working directory changed to: $DestRoot" -ForegroundColor Green
-} catch {
-    Write-Host "⚠️ Could not change directory: $($_.Exception.Message)" -ForegroundColor Yellow
-}
-
-# Emit object for automation usage
-[pscustomobject]@{
-    DestRoot = $DestRoot
-    Launcher = $Launcher
-    ZipPath  = $ZipPath
-    HashOk   = $true
-}
-
