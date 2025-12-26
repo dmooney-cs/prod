@@ -1,20 +1,38 @@
-# CS-Toolbox-Launcher-DevTools-ZeroTouch.ps1
-# Silent by default.
-# If -ShowHashes or -ConfirmHashes is used:
-#   - shows stage-by-stage status
-#   - shows expected hash (GitHub) + actual zip hash
-#   - shows failure reason if it exits early
+<# =================================================================================================
+ CS-Toolbox-Launcher-DevTools-ZeroTouch.ps1  (v2.2 - staging extract + safe normalize + silent default)
 
+ Fixes:
+  - Extracts ZIP into an isolated staging folder (avoids scooping other folders in C:\CS-Toolbox-TEMP)
+  - Preserves ZIP structure; only “flattens” ONE extra top folder level (common ZIP packaging)
+  - Does NOT vacuum/mangle other existing content under C:\CS-Toolbox-TEMP
+  - Uses -Force overwrite (never creates *" (2)"* copies)
+
+ Behavior:
+  - Silent by default.
+  - If -ShowHashes or -ConfirmHashes is used:
+      • shows stage-by-stage status
+      • shows expected hash (GitHub) + actual zip hash
+      • shows failure reason if it exits early
+
+ Switches:
+  -SkipHashCheck     : skip remote hash fetch + compare
+  -ShowHashes        : show expected/actual hashes
+  -ConfirmHashes     : prompt to proceed after hash check
+  -ExportOnly        : (per toolbox standard) no UI prompts unless ConfirmHashes, keeps output minimal
+================================================================================================= #>
+
+#requires -version 5.1
+[CmdletBinding()]
 param(
     [switch]$SkipHashCheck = $false,
     [switch]$ShowHashes = $false,
-    [switch]$ConfirmHashes = $false
+    [switch]$ConfirmHashes = $false,
+    [switch]$ExportOnly = $false
 )
 
-#requires -version 5.1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'  # kill progress UI
+$ProgressPreference = 'SilentlyContinue'
 
 # --------------------------
 # Config
@@ -31,6 +49,7 @@ $HashUrl     = 'https://raw.githubusercontent.com/dmooney-cs/prod/refs/heads/mai
 # --------------------------
 # Output control
 # --------------------------
+# Silent unless hashes are involved (or you choose to change this behavior)
 $script:AllowOutput = [bool]($ShowHashes -or $ConfirmHashes)
 
 function Say([string]$msg) {
@@ -51,13 +70,14 @@ function Fail([string]$stage, [string]$reason) {
 # Helpers (quiet)
 # --------------------------
 function Invoke-DownloadQuiet {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Uri,
         [Parameter(Mandatory)][string]$OutFile,
         [int]$Attempts = 3
     )
 
-    Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+    try { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue } catch { }
 
     for ($i = 1; $i -le $Attempts; $i++) {
         try {
@@ -69,7 +89,7 @@ function Invoke-DownloadQuiet {
                 return $true
             }
         } catch {
-            Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+            try { Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue } catch { }
             Start-Sleep -Seconds 1
         }
     }
@@ -77,6 +97,7 @@ function Invoke-DownloadQuiet {
 }
 
 function Get-RemoteSha256Quiet {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Uri,
         [int]$Attempts = 3
@@ -95,7 +116,7 @@ function Get-RemoteSha256Quiet {
             $line = ($txt -split "`r?`n" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1).Trim()
             if ([string]::IsNullOrWhiteSpace($line)) { throw "blank file" }
 
-            $hash = ($line -split '\s+')[0].Trim().ToUpper()
+            $hash = ($line -split '\s+')[0].Trim().ToUpperInvariant()
             if ($hash -match '^[0-9A-F]{64}$') { return $hash }
 
             throw "not a valid SHA-256 (expected 64 hex chars)"
@@ -107,19 +128,56 @@ function Get-RemoteSha256Quiet {
     return $null
 }
 
-function Move-ContentsSilent {
+function New-IsolatedStageFolder {
+    [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$Source,
-        [Parameter(Mandatory)][string]$Target
+        [Parameter(Mandatory)][string]$Parent
     )
-    if (-not (Test-Path -LiteralPath $Source)) { return }
-    Get-ChildItem -LiteralPath $Source -Force | ForEach-Object {
-        try { Move-Item -LiteralPath $_.FullName -Destination $Target -Force -ErrorAction Stop } catch { }
+    $name = "_stage_" + ([guid]::NewGuid().ToString("N"))
+    $path = Join-Path $Parent $name
+    New-Item -Path $path -ItemType Directory -Force | Out-Null
+    return $path
+}
+
+function Resolve-ExtractedRoot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$StageRoot
+    )
+
+    # If exactly one top-level folder exists and no top-level files exist,
+    # treat that folder as the content root (flatten one wrapper folder).
+    $topDirs  = @(Get-ChildItem -LiteralPath $StageRoot -Directory -Force -ErrorAction SilentlyContinue)
+    $topFiles = @(Get-ChildItem -LiteralPath $StageRoot -File      -Force -ErrorAction SilentlyContinue)
+
+    if ($topDirs.Count -eq 1 -and $topFiles.Count -eq 0) {
+        return $topDirs[0].FullName
+    }
+    return $StageRoot
+}
+
+function Move-TreeIntoDest {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ContentRoot,
+        [Parameter(Mandatory)][string]$DestRoot
+    )
+
+    # Move everything under ContentRoot into DestRoot, preserving structure
+    # Use -Force to overwrite existing files (no "(2)" copies)
+    foreach ($item in (Get-ChildItem -LiteralPath $ContentRoot -Force -ErrorAction SilentlyContinue)) {
+        try {
+            Move-Item -LiteralPath $item.FullName -Destination $DestRoot -Force -ErrorAction Stop
+        } catch {
+            # Fallback: copy+delete best effort (handles some locks/ACL oddities)
+            try { Copy-Item -LiteralPath $item.FullName -Destination $DestRoot -Recurse -Force -ErrorAction Stop } catch { }
+            try { Remove-Item -LiteralPath $item.FullName -Recurse -Force -ErrorAction SilentlyContinue } catch { }
+        }
     }
 }
 
 # --------------------------
-# Main (silent unless switches)
+# Main
 # --------------------------
 $stage = "init"
 
@@ -128,7 +186,10 @@ try {
 
     $stage = "prepare folders"
     try { New-Item -Path $ExtractPath -ItemType Directory -Force | Out-Null } catch { return (Fail $stage $_.Exception.Message) }
+
+    # Ensure a clean destination root
     try { Remove-Item -LiteralPath $DestRoot -Recurse -Force -ErrorAction SilentlyContinue } catch { }
+    try { New-Item -Path $DestRoot -ItemType Directory -Force | Out-Null } catch { return (Fail $stage $_.Exception.Message) }
 
     $stage = "download zip"
     Say "Downloading ZIP..."
@@ -144,16 +205,16 @@ try {
         Say "Fetching expected SHA-256 from GitHub..."
         $expected = Get-RemoteSha256Quiet -Uri $HashUrl -Attempts 3
         if ([string]::IsNullOrWhiteSpace($expected)) {
-            Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
+            try { Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue } catch { }
             return (Fail $stage "Unable to download/parse SHA-256 from $HashUrl")
         }
 
         $stage = "compute zip hash"
         Say "Computing ZIP SHA-256..."
         try {
-            $actual = (Get-FileHash -Algorithm SHA256 -Path $ZipPath).Hash.ToUpper()
+            $actual = (Get-FileHash -Algorithm SHA256 -Path $ZipPath).Hash.ToUpperInvariant()
         } catch {
-            Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
+            try { Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue } catch { }
             return (Fail $stage $_.Exception.Message)
         }
 
@@ -166,7 +227,7 @@ try {
 
         $stage = "compare hashes"
         if ($actual -ne $expected) {
-            Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue
+            try { Remove-Item -LiteralPath $ZipPath -Force -ErrorAction SilentlyContinue } catch { }
             return (Fail $stage "Hash mismatch")
         }
 
@@ -186,36 +247,43 @@ try {
         }
     }
 
-    $stage = "extract zip"
-    Say "Extracting..."
-    try { Expand-Archive -Path $ZipPath -DestinationPath $ExtractPath -Force } catch { return (Fail $stage $_.Exception.Message) }
-
-    $stage = "ensure dest"
-    try { New-Item -Path $DestRoot -ItemType Directory -Force | Out-Null } catch { return (Fail $stage $_.Exception.Message) }
-
-    $stage = "normalize structure"
-    if (-not (Test-Path -LiteralPath (Join-Path $DestRoot 'CS-Toolbox-Launcher.ps1'))) {
-        $dirs  = Get-ChildItem -LiteralPath $ExtractPath -Directory -Force | Where-Object { $_.FullName -ne $DestRoot }
-        $files = Get-ChildItem -LiteralPath $ExtractPath -File -Force | Where-Object { $_.FullName -ne $ZipPath }
-
-        if ($dirs.Count -eq 1 -and $files.Count -eq 0) {
-            Move-ContentsSilent -Source $dirs[0].FullName -Target $DestRoot
-            Remove-Item -LiteralPath $dirs[0].FullName -Recurse -Force -ErrorAction SilentlyContinue
-        } else {
-            foreach ($d in $dirs) { Move-ContentsSilent -Source $d.FullName -Target $DestRoot }
-            foreach ($f in $files) {
-                try { Move-Item -LiteralPath $f.FullName -Destination $DestRoot -Force -ErrorAction Stop } catch { }
-            }
-            foreach ($d in $dirs) {
-                Remove-Item -LiteralPath $d.FullName -Recurse -Force -ErrorAction SilentlyContinue
-            }
-        }
+    $stage = "extract zip (staging)"
+    Say "Extracting (staging)..."
+    $StageRoot = $null
+    try {
+        $StageRoot = New-IsolatedStageFolder -Parent $ExtractPath
+        Expand-Archive -Path $ZipPath -DestinationPath $StageRoot -Force
+    } catch {
+        if ($StageRoot) { try { Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction SilentlyContinue } catch { } }
+        return (Fail $stage $_.Exception.Message)
     }
+
+    $stage = "resolve extracted root"
+    $ContentRoot = $null
+    try {
+        $ContentRoot = Resolve-ExtractedRoot -StageRoot $StageRoot
+    } catch {
+        try { Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction SilentlyContinue } catch { }
+        return (Fail $stage $_.Exception.Message)
+    }
+
+    $stage = "move content into destination"
+    try {
+        Move-TreeIntoDest -ContentRoot $ContentRoot -DestRoot $DestRoot
+    } catch {
+        try { Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction SilentlyContinue } catch { }
+        return (Fail $stage $_.Exception.Message)
+    }
+
+    $stage = "cleanup staging"
+    try { Remove-Item -LiteralPath $StageRoot -Recurse -Force -ErrorAction SilentlyContinue } catch { }
 
     $stage = "unblock"
     try {
-        Get-ChildItem -LiteralPath $DestRoot -Recurse -Force -File |
-            ForEach-Object { try { Unblock-File -LiteralPath $_.FullName -ErrorAction SilentlyContinue } catch { } }
+        Get-ChildItem -LiteralPath $DestRoot -Recurse -Force -File -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                try { Unblock-File -LiteralPath $_.FullName -ErrorAction SilentlyContinue } catch { }
+            }
     } catch { }
 
     $stage = "launch"
