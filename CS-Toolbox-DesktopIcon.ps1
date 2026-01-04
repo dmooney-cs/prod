@@ -1,5 +1,8 @@
 <# =================================================================================================
- CS-Toolbox-DesktopIcon.ps1  (v2.0 - overwrite always + include .ico + default minimal UI + ShowDetails)
+ CS-Toolbox-DesktopIcon.ps1  (v2.1 - ps1/ico to C:\CS-Toolbox-TEMP\Launchers)
+
+ Change requested:
+  - Copy ALL .ps1 and ALL .ico to C:\CS-Toolbox-TEMP\Launchers (overwrite existing)
 
  Default behavior:
   - Runs without showing the full planned-actions menu
@@ -13,7 +16,6 @@
 
  Other:
   - NEVER create "_(2)" copies. ALWAYS overwrite using -Force.
-  - Copies ALL .ps1 and ALL .ico to C:\Temp (overwrite).
   - Copies ALL .lnk to Desktop and/or Taskbar pinned folder (overwrite).
   - -ExportOnly exports JSON to C:\Temp\collected-info and exits (no prompts).
 
@@ -42,9 +44,10 @@ $ProgressPreference = 'SilentlyContinue'
 if (-not $Desktop -and -not $Taskbar) { $Desktop = $true }
 
 # ------------------------- Paths -------------------------
-$DeployRoot       = "C:\Temp"
-$CollectedInfoDir = Join-Path $DeployRoot "collected-info"
-$LogFile          = Join-Path $DeployRoot "CS-Toolbox-DesktopIcon.log"
+$DeployRoot       = "C:\CS-Toolbox-TEMP\Launchers"   # CHANGED: destination for .ps1 and .ico
+$ExportRoot       = "C:\Temp"                        # unchanged: logs + collected-info/export-only behavior
+$CollectedInfoDir = Join-Path $ExportRoot "collected-info"
+$LogFile          = Join-Path $ExportRoot "CS-Toolbox-DesktopIcon.log"
 $ExportJson       = Join-Path $CollectedInfoDir "CS-Toolbox-DesktopIcon.json"
 
 function Ensure-Dir {
@@ -53,8 +56,9 @@ function Ensure-Dir {
         New-Item -ItemType Directory -Path $Path -Force | Out-Null
     }
 }
-Ensure-Dir $DeployRoot
+Ensure-Dir $ExportRoot
 Ensure-Dir $CollectedInfoDir
+Ensure-Dir $DeployRoot
 
 function Write-Log {
     param(
@@ -200,11 +204,8 @@ function Copy-AllFilesOverwrite {
 }
 
 function Wait-AnyKey {
-    try {
-        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
-    } catch {
-        Start-Sleep -Seconds 2
-    }
+    try { $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') }
+    catch { Start-Sleep -Seconds 2 }
 }
 
 # ------------------------- Summary -------------------------
@@ -224,8 +225,8 @@ $summary = [ordered]@{
     icoCountFound       = 0
     copiedLnkToDesktop  = @()
     copiedLnkToTaskbar  = @()
-    copiedPs1ToCTemp    = @()
-    copiedIcoToCTemp    = @()
+    copiedPs1ToLaunchers= @()
+    copiedIcoToLaunchers= @()
     result              = "UNKNOWN"
 }
 
@@ -314,8 +315,8 @@ try {
     }
 
     # Copy (overwrite)
-    if ($ps1Files.Count -gt 0) { $summary.copiedPs1ToCTemp = Copy-AllFilesOverwrite -Files $ps1Files -Destination $DeployRoot }
-    if ($icoFiles.Count -gt 0) { $summary.copiedIcoToCTemp = Copy-AllFilesOverwrite -Files $icoFiles -Destination $DeployRoot }
+    if ($ps1Files.Count -gt 0) { $summary.copiedPs1ToLaunchers = Copy-AllFilesOverwrite -Files $ps1Files -Destination $DeployRoot }
+    if ($icoFiles.Count -gt 0) { $summary.copiedIcoToLaunchers = Copy-AllFilesOverwrite -Files $icoFiles -Destination $DeployRoot }
 
     if ($Desktop -and $lnkFiles.Count -gt 0) {
         $summary.copiedLnkToDesktop = Copy-AllFilesOverwrite -Files $lnkFiles -Destination $desktopPath
