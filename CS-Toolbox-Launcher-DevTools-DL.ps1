@@ -1,28 +1,10 @@
+```powershell
 <# =================================================================================================
- CS-Toolbox-Launcher-DevTools-ZeroTouch-NO-LAUNCH.ps1  (v2.2a - staging extract + safe normalize + silent default)
+ CS-Toolbox-Launcher-DevTools-ZeroTouch-NO-LAUNCH.ps1  (v2.2b - NO-EXIT fix)
 
- Fixes:
-  - Extracts ZIP into an isolated staging folder (avoids scooping other folders in C:\CS-Toolbox-TEMP)
-  - Preserves ZIP structure; only “flattens” ONE extra top folder level (common ZIP packaging)
-  - Does NOT vacuum/mangle other existing content under C:\CS-Toolbox-TEMP
-  - Uses -Force overwrite (never creates *" (2)"* copies)
-
- Behavior:
-  - Silent by default.
-  - If -ShowHashes or -ConfirmHashes is used:
-      • shows stage-by-stage status
-      • shows expected hash (GitHub) + actual zip hash
-      • shows failure reason if it exits early
-
- Switches:
-  -SkipHashCheck     : skip remote hash fetch + compare
-  -ShowHashes        : show expected/actual hashes
-  -ConfirmHashes     : prompt to proceed after hash check
-  -ExportOnly        : (per toolbox standard) no UI prompts unless ConfirmHashes, keeps output minimal
-
- Change from v2.2:
-  - DOES NOT LAUNCH the toolbox at the end
-  - Exits with code 0 on success (no "True" output)
+ Key fix from v2.2a:
+  - Replaced ALL `exit` usage with `return` / `throw`
+    so running via `irm ... | iex` does NOT terminate the caller session.
 ================================================================================================= #>
 
 #requires -version 5.1
@@ -67,8 +49,8 @@ function Fail([string]$stage, [string]$reason) {
         Write-Host "Reason : $reason"
         Write-Host ""
     }
-    # Nonzero exit prevents "True" echo and signals failure to callers
-    exit 1
+    # IMPORTANT: do NOT exit the host session (esp. when invoked via irm|iex)
+    throw "FAILED at: $stage | $reason"
 }
 
 # --------------------------
@@ -238,7 +220,7 @@ try {
 
         if ($ConfirmHashes) {
             $resp = Read-Host "Hashes match. Proceed with extract? (Y/N)"
-            if ($resp -notin @('Y','y')) { exit 0 }
+            if ($resp -notin @('Y','y')) { return }
         }
     } else {
         if ($ConfirmHashes -or $ShowHashes) {
@@ -248,7 +230,7 @@ try {
         }
         if ($ConfirmHashes) {
             $resp = Read-Host "Proceed without hash verification? (Y/N)"
-            if ($resp -notin @('Y','y')) { exit 0 }
+            if ($resp -notin @('Y','y')) { return }
         }
     }
 
@@ -292,10 +274,11 @@ try {
     } catch { }
 
     # --------------------------
-    # DONE (no launch) - no "True" output
+    # DONE (no launch) - IMPORTANT: do NOT exit the host session
     # --------------------------
-    exit 0
+    return
 
 } catch {
     Fail $stage $_.Exception.Message
 }
+```
