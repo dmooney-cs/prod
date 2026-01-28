@@ -1,10 +1,24 @@
-```powershell
-<# =================================================================================================
- CS-Toolbox-Launcher-DevTools-ZeroTouch-NO-LAUNCH.ps1  (v2.2b - NO-EXIT fix)
+& {
 
- Key fix from v2.2a:
-  - Replaced ALL `exit` usage with `return` / `throw`
-    so running via `irm ... | iex` does NOT terminate the caller session.
+<# =================================================================================================
+ CS-Toolbox-Launcher-DevTools-ZeroTouch-NO-LAUNCH.ps1  (v2.2c - staging extract + safe normalize + silent default + irm|iex safe)
+
+ Fixes (v2.2c):
+  - SAFE for `irm ... | iex` by wrapping in `& { }` so [CmdletBinding()] + param parse correctly every time
+  - Replaced ALL `exit` usage with `return` / `throw` so the caller session is never terminated
+
+ Behavior:
+  - Silent by default.
+  - If -ShowHashes or -ConfirmHashes is used:
+      • shows stage-by-stage status
+      • shows expected hash (GitHub) + actual zip hash
+      • shows failure reason if it exits early
+
+ Switches:
+  -SkipHashCheck     : skip remote hash fetch + compare
+  -ShowHashes        : show expected/actual hashes
+  -ConfirmHashes     : prompt to proceed after hash check
+  -ExportOnly        : (per toolbox standard) no UI prompts unless ConfirmHashes, keeps output minimal
 ================================================================================================= #>
 
 #requires -version 5.1
@@ -281,4 +295,5 @@ try {
 } catch {
     Fail $stage $_.Exception.Message
 }
-```
+
+}
