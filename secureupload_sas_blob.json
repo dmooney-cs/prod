@@ -1,12 +1,12 @@
-{
-  "version": 1,
-  "encParts": [
-    "l1mOZ8+LUY4nC6O6ynYCwS0JdyIjxTtpiHoKwEP8imwTqN3iBMRkNdze/1lJk3q2",
-    "q4p0SNN14WMPOxXArUV6JlH7G2MyArc/D8T+qd7Mk+f7FKzwzqCqXNYs+urZzvHK",
-    "cpva0yyOjuyQttxm97T+9pFyQdc3kaEawb/6CS8FmsYzsmh1LFmmlFc4lacQmDxe",
-    "R31z9bOs0dHI9NxHDBnwN1408WmkwjptbcbH+gVk0Fw="
-  ],
-  "ivParts": [
-    "zynpmQXYLhJ5neUuiq+gEw=="
-  ]
+﻿{
+    "version":  1,
+    "encParts":  [
+                     "RW22FOgC4d7bs+/tSmO9r8pAspnzSjLZ/7TK5aeeB7aW7frOIcjBsHTep8uayJIm",
+                     "I0XWqnGFOmqWDIuvckvi2rQRIkHkP7pKlfmgSNyAJC2wie9iRdlWiyeiSJHs2CJK",
+                     "aQuVeywKXxO95Nh6YgeIIBs0d1Ge+d4HBqIfK/4eKsWc1KUzE0dZW6RIpNn8r7db",
+                     "J02A7kyI8kdQlp9aRaTbq20p1rdJhzPTq0WFuVVxNJg="
+                 ],
+    "ivParts":  [
+                    "YLLInkX01J8QeytgAwYIEQ=="
+                ]
 }
