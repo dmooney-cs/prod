@@ -1,9 +1,0 @@
-MESSAGE,SYMPTOM,INFO,REF,URL
-no such host,Agent Communication Unstable/Unavailable.,"Whitelist - and use PS ""TNC *host in error* -Port 443"" to verify. Only for external URL's not internal destinations with error.",175195,https://cybercns.atlassian.net/wiki/x/ZwDXhw
-Error in installing npcap,This is a pre-requisit for succesful CS network probe scanning.,Removal and reinstall of npcap recommended.,181725,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Probe-Agent-Not-Detecting-Assets
-Error in Parsing nmap results,Network scan results fail to populate.,Nmap dependencies used by the ConnectSecure agent are either missing or being blocked.,182380,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2279014503/Agent+Dependency
-WU_S_ALREADY_INSTALLED,Windows update fail to instal.,"Windows generated error, reboot and check if patch is still required.",182458,
-Service 'CyberCNSAgent (CyberCNSAgent)' cannot be started,"Agent not checking in, or agent doesn’t work.","EDR/AV stopping serice, re-regiser with -w and ensure service has been started.",182676,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Windows-Agent-Service-Is-Running-but-Not-Showing-in-Portal
-C:\PROGRA~2\CyberCNSAgent\nmap\nmap.exe: The system cannot find the file specified.,Local network probe scanning wont function.,Unzip nmap.zip in C:\Program Files (x86)\CyberCNSAgent into \NMAP in the same folder.,181761,
-Npcap does not match the criteria., Uninstall npcap and reattempt probe conversion.,Npcap minimium version not installed.,182813,
-Error in installing vc_redist.x86.exe,Probe scanning wont function.,Normally caused by EDR/AV or other installation prevention.,176955,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Error-Installing-vc_dist.x86.exe
