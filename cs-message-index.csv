@@ -26,3 +26,14 @@ Auth Scan Status false Sending Full Software Data false,Software/data not popula
 Port 445(SMB):- Error in validating AD Credentials,The attempted logon is invalid. Authentication failed.,This is either due to a bad username or authentication information. Confirm the password/username is correct and that admin-level permissions are granted.,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Error-SMB-Enabled-but-Username-or-Password-Invalid
 error in connecting to port 4222 to API server,Unable to install ConnectSecure agent.,Whitelisting should be verified or the -x command on the agent should be ran.,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2279014503/Agent+Dependency#POD%2FREGION-IP-WHITELISTING
 "Decoded but different from db"",""status"":false}",Unable to install ConnectSecure agent.,Send to dev for backend parsing fix.,179910,NA
+exit status 2,Unable to download updates due to insufficient memory. ,Increase memory.,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Memory-Issues
+"logo upload response {“code”:5, “message”:”Not found”}",White label setting logo does not update ,Dev code dix ,NA,NA
+Error in application upgraded using ccnspatching,Patch initiated for application: ,Escalation. JSON upatded by QA ,NA,NA
+Error v4_firewall_scan_processor get_manufacturer could not be found ,Firewall not showing under firewall assets. ,Escalation to Dev to fix server side database mismatch.,NA,NA
+"Error in getting agent scheduler, status code 502",Discrepancy between scan scheduler and scan times. ,Escalation to QA to fix the issue.,NA,NA
+Max retries exceed with url,Scheduler firewall scan not running automatically. ,Escalation to Dev ,NA,NA
+Error unmarshalling JSON | Error I’m publishing data to central server ,Ticket closed without vulnerability being remedied. ,Enable Global settings > set vulnerability filter > all  ,NA,NA
+Error failed to reconnect to NATS ,Agents or Asset information not updating in the portal ,Whitelisting/communication check ,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#How-To-Check-The-ConnectSecure-Agent-Status-%26-Communication-With-The-Portal
+No connection could be made because the target machine actively refused.,Online agent showing as offline ,Whitelisting ,NA,
+Error making request checking with fall back url post ,Online agents showing as offline ,Whitelisting ,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2279014503/Agent+Dependency#POD%2FREGION-IP-WHITELISTING
+"Error in updating agent data, failed with status code 503",Agents showing offline. ,Whitelisting.,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2279014503/Agent+Dependency#POD%2FREGION-IP-WHITELISTING
