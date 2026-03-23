@@ -5,7 +5,7 @@ no such host,Agent Communication Unstable/Unavailable.,"Whitelist - and use PS "
 Error in installing npcap,This is a pre-requisit for succesful CS network probe scanning.,Removal and reinstall of npcap recommended.,181725,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Probe-Agent-Not-Detecting-Assets
 Error in Parsing nmap results,Network scan results fail to populate.,Nmap dependencies used by the ConnectSecure agent are either missing or being blocked.,182380,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2279014503/Agent+Dependency
 WU_S_ALREADY_INSTALLED,Windows updates fail to install.,"Windows generated error, reboot and check if patch is still required.",182458,NA
-Service 'CyberCNSAgent (CyberCNSAgent)' cannot be started,"Agent not checking in, or agent doesnâ€™t work.","EDR/AV stopping serice, re-regiser with -w and ensure service has been started.",182676,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Windows-Agent-Service-Is-Running-but-Not-Showing-in-Portal
+Service 'CyberCNSAgent (CyberCNSAgent)' cannot be started,"Agent not checking in, or agent doesnÃ¢â‚¬â„¢t work.","EDR/AV stopping serice, re-regiser with -w and ensure service has been started.",182676,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Windows-Agent-Service-Is-Running-but-Not-Showing-in-Portal
 C:\PROGRA~2\CyberCNSAgent\nmap\nmap.exe: The system cannot find the file specified.,Local network probe scanning wont function.,Unzip nmap.zip in C:\Program Files (x86)\CyberCNSAgent into \NMAP in the same folder.,181761,NA
 Npcap does not match the criteria., Uninstall npcap and reattempt probe conversion.,Npcap minimium version not installed.,182813,NA
 Error in installing vc_redist.x86.exe,Probe scanning wont function.,Normally caused by EDR/AV or other installation prevention.,176955,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Error-Installing-vc_dist.x86.exe
@@ -27,13 +27,14 @@ Port 445(SMB):- Error in validating AD Credentials,The attempted logon is invali
 error in connecting to port 4222 to API server,Unable to install ConnectSecure agent.,Whitelisting should be verified or the -x command on the agent should be ran.,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2279014503/Agent+Dependency#POD%2FREGION-IP-WHITELISTING
 "Decoded but different from db"",""status"":false}",Unable to install ConnectSecure agent.,Send to dev for backend parsing fix.,179910,NA
 exit status 2,Unable to download updates due to insufficient memory. ,Increase memory.,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#Memory-Issues
-"logo upload response {“code”:5, “message”:”Not found”}",White label setting logo does not update ,Dev code dix ,NA,NA
+"logo upload response {â€œcodeâ€:5, â€œmessageâ€:â€Not foundâ€}",White label setting logo does not update ,Dev code dix ,NA,NA
 Error in application upgraded using ccnspatching,Patch initiated for application: ,Escalation. JSON upatded by QA ,NA,NA
 Error v4_firewall_scan_processor get_manufacturer could not be found ,Firewall not showing under firewall assets. ,Escalation to Dev to fix server side database mismatch.,NA,NA
 "Error in getting agent scheduler, status code 502",Discrepancy between scan scheduler and scan times. ,Escalation to QA to fix the issue.,NA,NA
 Max retries exceed with url,Scheduler firewall scan not running automatically. ,Escalation to Dev ,NA,NA
-Error unmarshalling JSON | Error I’m publishing data to central server ,Ticket closed without vulnerability being remedied. ,Enable Global settings > set vulnerability filter > all  ,NA,NA
+Error unmarshalling JSON | Error Iâ€™m publishing data to central server ,Ticket closed without vulnerability being remedied. ,Enable Global settings > set vulnerability filter > all  ,NA,NA
 Error failed to reconnect to NATS ,Agents or Asset information not updating in the portal ,Whitelisting/communication check ,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2175271274/Troubleshooting+FAQ#How-To-Check-The-ConnectSecure-Agent-Status-%26-Communication-With-The-Portal
 No connection could be made because the target machine actively refused.,Online agent showing as offline ,Whitelisting ,NA,
 Error making request checking with fall back url post ,Online agents showing as offline ,Whitelisting ,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2279014503/Agent+Dependency#POD%2FREGION-IP-WHITELISTING
 "Error in updating agent data, failed with status code 503",Agents showing offline. ,Whitelisting.,NA,https://cybercns.atlassian.net/wiki/spaces/CVB/pages/2279014503/Agent+Dependency#POD%2FREGION-IP-WHITELISTING
+got stop exiting service execution service ending,	Agent offline,	AV/EDR blocking.,	182844, NA
